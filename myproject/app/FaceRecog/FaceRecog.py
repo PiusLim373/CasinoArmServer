@@ -123,7 +123,7 @@ start_game = False
 video_capture = cv2.VideoCapture(1)
 #D:\Study Stuffs\MA4825 Robotics\Big BigProject\CasinoArm\flask\myproject\app\FaceRecog
 # Load face encodings
-with open('D:/Study Stuffs/MA4825 Robotics/Big BigProject/CasinoArm/flask/myproject/app/FaceRecog/classmate/dataset_faces.dat', 'rb') as f:
+with open('D:/Study Stuffs/MA4825 Robotics/Big BigProject/CasinoArm/flask/CasinoArmServer/myproject/app/FaceRecog/classmate/dataset_faces.dat', 'rb') as f:
     all_face_encodings = pickle.load(f)
 
 # Grab the list of names and the list of encodings

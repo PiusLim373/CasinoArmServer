@@ -3,7 +3,7 @@ import requests
 import time
 import json
 import os
-import FaceRecog
+#from arm_pos import ik
 
 app = Flask(__name__)
 
