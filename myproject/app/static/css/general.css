@@ -1,0 +1,66 @@
+html, body {
+	height:100%;
+	margin:0;
+}
+.container{
+	min-height:100%;
+}
+body{
+	font-family: 'Lato', sans-serif;
+
+}
+.big-text{
+	font-size: 30px;
+}
+
+.big-btn{
+	margin:20px; 
+	font-size: 20px;
+	padding:30px;
+	background-color: red;
+}
+.footer {
+	bottom:0px;
+	left:0px;
+	width:100%;
+	background-color: #e9ecef;
+	height:50px;
+	box-shadow: 2px -2px 15px grey;
+
+}
+.navbar{
+	box-shadow: 2px 2px 15px grey;
+}
+.footer-text{
+	padding-top:10px;
+	
+}
+.hidden-feedback{
+	display:none;
+}
+.panel-heading{
+	font-size: 25px;
+}
+.aruco-img{
+	display: inline-block;
+}
+.aruco-img img{
+	height:150px;
+	width:150px;
+	margin:10px;
+	
+}
+.aruco-img:hover {
+	cursor: pointer;
+	opacity:0.5;
+}
+.active{
+	opacity:0.5;
+    
+}
+#Step2{
+	display:none;
+}
+#Submit{
+	display: none;
+}
