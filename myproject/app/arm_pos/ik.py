@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import time
-#test
+
 if os.name == 'nt':
     import msvcrt
     def getch():
@@ -17,6 +17,9 @@ LEN_AX12A_PRESENT_POSITION    = 4
 ADDR_AX12A_TORQUE_ENABLE      = 24                 # Control table address is different in Dynamixel model
 ADDR_AX12A_GOAL_POSITION      = 30
 ADDR_AX12A_PRESENT_POSITION   = 36
+ADDR_AX12A_MOVE_SPEED =  32                      # Joint mode 0 - 1023 (114rpm)/Wheel mode 0 - 1023 CCW 1024 - 2047 CW (0 or 1024 as stop byte)
+ADDR_AX12A_CCW_ANGLE_LIMIT_L = 8                 # For wheel mode, set both limits
+ADDR_AX12A_CCW_ANGLE_LIMIT_H = 9                 # to 0. For Joint, 255/3 (default)
 
 # Protocol version
 PROTOCOL_VERSION            = 1                 # See which protocol version is used in the Dynamixel
@@ -24,9 +27,10 @@ PROTOCOL_VERSION            = 1                 # See which protocol version is 
 # Default setting
 DXL1_ID                      = 1                 # Shoulder
 DXL2_ID                      = 2                 # Elbow
-DXL3_ID                      = 4                 # Wrist 1 LR
-DXL4_ID                      = 5                 # Wrist 2 UD
+DXL3_ID                      = 3                 # Wrist 1 LR
+DXL4_ID                      = 4                 # Wrist 2 UD
 DXL5_ID                      = 5                # Gripper
+DXL6_ID                      = 6                # Card dispenser
 BAUDRATE                    = 1000000           # Dynamixel default baudrate : 57600
 DEVICENAME                  = 'COM3'            # Check which port is being used on your controller
 
@@ -159,6 +163,8 @@ class Kinematics:
         return np.matrix([self.x_der(t),self.y_der(t),self.z_der(t)])
     
     # update current joint angles and return the list in radians
+    # Real setup motors range are (0, 300) and are offset by 150 degrees so that motor can move in either positive/negative directions 
+    # For easier analysis the program sets initial position at 0 degrees so that the range becomes (-150, 150)
     def dynamixel_read(self):
         # function to round off angles to principal angles [0,360] in radians and remove offset by 150 degrees
         def unoffset_angle(x):
@@ -178,8 +184,8 @@ class Kinematics:
         print("Read current angles!")
         return self.T
     
-    # input angles radians
-    # outputs motor position and update self angle list
+    # input angles radians (non offset)
+    # outputs motor position (after offset) and update self angle list (non offset)
     def dynamixel_write(self, angle1, angle2, angle3, angle4):
         # function to round off angles to principal angles [0,360] in radians and add offset by 150 degrees
         def offset_angle(x):
@@ -276,7 +282,7 @@ class Kinematics:
         return 1
     
     # DH Forward Kinematic Matrices
-    # Take current joint variables, return only end pt position
+    # Take current joint variables, return only end pt position (x, y, z) as 4x1 column
     def forwardk(self):
         angle = [item for item in self.T]
         i = [0,1,2,3]
@@ -288,6 +294,8 @@ class Kinematics:
                 [0, 0, 0, 1]]))
         return np.matmul(dh_fk, np.matrix([[0],[0],[0],[1]]))
 
+    # Main function to calculate angles required to move to certain position
+    # returns calculation time
     def move_to(self, target_x, target_y, target_z):
         # function to round off angles to principal angles [0,360] in radians
         def round_angle(x):
@@ -359,6 +367,94 @@ class Kinematics:
 
         return (end - start)
 
+    # Input = 1: grip, 0: ungrip
+    def grip(self, input):
+        CLOSE_POS = 1024
+        OPEN_POS = 0
+        if input == 1:
+            enabled = torque_enable(DXL5_ID)
+            if (enabled != 1):
+                print("Fail to enable motor 5")
+                return 0
+            
+            # Write goal position
+            dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, DXL5_ID, ADDR_AX12A_GOAL_POSITION, CLOSE_POS)
+            if dxl_comm_result != COMM_SUCCESS:
+                print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+            elif dxl_error != 0:
+                print("%s" % packetHandler.getRxPacketError(dxl_error))
+
+            while 1:
+                dxl5_present_position = int(read_pos(DXL5_ID)/300/np.pi*180*1024)
+                if ((abs(CLOSE_POS - dxl5_present_position) < DXL_MOVING_STATUS_THRESHOLD)):
+                    break
+
+            torque_disable(DXL5_ID)
+            print("Gripper activated!")
+        if input == 0:
+            enabled = torque_enable(DXL5_ID)
+            if (enabled != 1):
+                print("Fail to enable motor 5")
+                return 0
+            
+            # Write goal position
+            dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, DXL5_ID, ADDR_AX12A_GOAL_POSITION, OPEN_POS)
+            if dxl_comm_result != COMM_SUCCESS:
+                print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+            elif dxl_error != 0:
+                print("%s" % packetHandler.getRxPacketError(dxl_error))
+
+            while 1:
+                dxl5_present_position = int(read_pos(DXL5_ID)/300/np.pi*180*1024)
+                if ((abs(OPEN_POS - dxl5_present_position) < DXL_MOVING_STATUS_THRESHOLD)):
+                    break
+
+            torque_disable(DXL5_ID)
+            print("Gripper deactivated!")
+
+    # Dispense a card
+    def dispense(self):
+        SPEED = 200   #0-1023 ccw, 1024 - 2047 CW
+        STOP_SPEED = 0   #0 for CCW, 1024 for CW
+        INTERVAL = 3
+
+        enabled = torque_enable(DXL6_ID)
+        if (enabled != 1):
+            print("Fail to enable motor 6")
+            return 0
+        
+        # Setup Wheel Mode
+        dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_CCW_ANGLE_LIMIT_L, 0)
+        if dxl_comm_result != COMM_SUCCESS:
+            print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+        elif dxl_error != 0:
+            print("%s" % packetHandler.getRxPacketError(dxl_error))
+        
+        dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_CCW_ANGLE_LIMIT_H, 0)
+        if dxl_comm_result != COMM_SUCCESS:
+            print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+        elif dxl_error != 0:
+            print("%s" % packetHandler.getRxPacketError(dxl_error))
+
+        # Write goal speed
+        dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_MOVE_SPEED, SPEED)
+        if dxl_comm_result != COMM_SUCCESS:
+            print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+        elif dxl_error != 0:
+            print("%s" % packetHandler.getRxPacketError(dxl_error))
+        
+        time.sleep(INTERVAL)
+
+        # Stop
+        dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_MOVE_SPEED, STOP_SPEED)
+        if dxl_comm_result != COMM_SUCCESS:
+            print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+        elif dxl_error != 0:
+            print("%s" % packetHandler.getRxPacketError(dxl_error))
+
+        torque_disable(DXL6_ID)
+        print("Card dispensed!")
+
 # Main loop
 # Initialisation at position (x,y,z) = (r1 + r1 + r2 + r3,0,0)
 chain1 = Kinematics(5,1,2)    # joint variables
@@ -372,55 +468,3 @@ while (1):
     print("press any key to continue, or ESC to quit")
     if getch() == chr(0x1b):
         break
-'''
-    x=-13
-    y=-13
-    z=-2
-    loopstart = time.monotonic()
-    counter = 0
-    success = 0
-    longestt = 0.0
-    longestpos = [0,0,0]
-    while (x<=13):
-        y = -13
-        while (y<=13):
-            z = -2
-            while (z<=2):
-                counter += 1
-                #f = open('output.txt','a')
-                input_x=x
-                input_y=y
-                input_z=z
-                #f.write("\ncurrent target: ")
-                #f.write(str([input_x,input_y,input_z]))
-                print("\ncurrent target: ")
-                print(str([input_x,input_y,input_z]))
-                if (input_x**2 +input_y**2 > 121):
-                    #f.write("this target is not reachable!\n")
-                    print("this target is not reachable!\n")
-                    #f.close()
-                else:
-                    #f.close()
-                    returntime = chain1.move_to(input_x,input_y,input_z)
-                    print(returntime)
-                    if returntime > longestt:
-                        longestt = returntime
-                        longestpos = [x,y,z]
-                        print("current slowest: ")
-                        print(longestt)
-                    success += 1
-                z += 1
-            y += 1
-        x += 1
-    elapsed = time.monotonic() - loopstart
-    print("Finished!")
-    print("Total Positions: ")
-    print(counter)
-    print("Positions successfully calculated: ")
-    print(success)
-    print("Total time elapsed: ")
-    print(elapsed)
-    print("Slowest: ")
-    print(longestpos)
-    print(longestt)
-'''
