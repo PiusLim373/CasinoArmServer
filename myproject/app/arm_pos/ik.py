@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import time
-#test
+#no test
 if os.name == 'nt':
     import msvcrt
     def getch():
