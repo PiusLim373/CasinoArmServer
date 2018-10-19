@@ -1,23 +1,9 @@
-html, body {
-	height:100%;
-	margin:0;
-}
-.container{
-	min-height:100%;
-}
+
 body{
 	font-family: 'Lato', sans-serif;
+	height:100%;
+	white-space: nowrap;
 
-}
-.big-text{
-	font-size: 30px;
-}
-
-.big-btn{
-	margin:20px; 
-	font-size: 20px;
-	padding:30px;
-	background-color: red;
 }
 .footer {
 	bottom:0px;
@@ -35,32 +21,79 @@ body{
 	padding-top:10px;
 	
 }
-.hidden-feedback{
+.hide{
 	display:none;
 }
-.panel-heading{
+.card-header{
 	font-size: 25px;
 }
-.aruco-img{
-	display: inline-block;
+.center{
+	position:relative;
+	
+	height: 100%;
 }
-.aruco-img img{
-	height:150px;
-	width:150px;
-	margin:10px;
+.center div{
+	margin: 0;
+	position:absolute;
+	top:50%;
+	left:50%;
+	-ms-transform:translate(-50%, -50%);
+	transform: translate(-50%, -50%);
+
+}
+.center button {
+	margin: 0;
+	position:absolute;
+	top:120%;
+	left:50%;
+	-ms-transform:translate(-50%, -50%);
+	transform: translate(-50%, -50%);
+	width:100%;
 	
 }
-.aruco-img:hover {
-	cursor: pointer;
-	opacity:0.5;
+.mid{
+	width: 100%;
 }
-.active{
-	opacity:0.5;
-    
+.btn-xl{
+	height:100px;
+	
+	font-size: 50px;
 }
-#Step2{
-	display:none;
+
+#main{
+
 }
-#Submit{
-	display: none;
+
+#loader {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 150px;
+  height: 150px;
+  margin: -75px 0 0 -75px;
+  border: 16px solid #f3f3f3;
+  border-radius: 50%;
+  border-top: 16px solid #3498db;
+  width: 120px;
+  height: 120px;
+  -webkit-animation: spin 2s linear infinite;
+  animation: spin 2s linear infinite;
+}
+@-webkit-keyframes spin {
+  0% { -webkit-transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.ResetBtn{
+	position:absolute;
+	
+	height:80px;
+	font-size:30px;
 }
