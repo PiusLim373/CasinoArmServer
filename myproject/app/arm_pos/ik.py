@@ -1,11 +1,25 @@
 import os
-import numpy as np
 import time
+
+import numpy as np
+import serial
+
+from dynamixel_sdk import (BROADCAST_ID,  # Uses Dynamixel SDK library
+                           COMM_NOT_AVAILABLE, COMM_RX_CORRUPT,
+                           COMM_RX_TIMEOUT, COMM_SUCCESS, COMM_TX_FAIL,
+                           DXL_HIBYTE, DXL_HIWORD, DXL_LOBYTE, DXL_LOWORD,
+                           DXL_MAKEDWORD, DXL_MAKEWORD, INST_BULK_READ,
+                           INST_READ, RXPACKET_MAX_LEN, GroupSyncWrite,
+                           PortHandler, Protocol1PacketHandler)
+
 if os.name == 'nt':
     import msvcrt
     def getch():
         return msvcrt.getch().decode()
-from dynamixel_sdk import PortHandler, PacketHandler, GroupSyncWrite, COMM_SUCCESS, DXL_LOBYTE, DXL_LOWORD, DXL_HIBYTE, DXL_HIWORD # Uses Dynamixel SDK library
+
+# Arduino setup
+ARDUINO_PORT = 'COM5'
+ARDUINO_BAUD = 9600
 
 # Data Byte Length
 LEN_AX12A_GOAL_POSITION       = 2
@@ -18,9 +32,6 @@ ADDR_AX12A_PRESENT_POSITION   = 36
 ADDR_AX12A_MOVE_SPEED =  32                      # Joint mode 0 - 1023 (114rpm)/Wheel mode 0 - 1023 CCW 1024 - 2047 CW (0 or 1024 as stop byte)
 ADDR_AX12A_CW_ANGLE_LIMIT = 6                 # For wheel mode, set both limits
 ADDR_AX12A_CCW_ANGLE_LIMIT = 8                 # to 0. For Joint, 255/3 (default)
-
-# Protocol version
-PROTOCOL_VERSION            = 1                 # See which protocol version is used in the Dynamixel
 
 # Default setting
 DXL1_ID                      = 5                 # Shoulder
@@ -46,7 +57,15 @@ portHandler = PortHandler(DEVICENAME)
 # Initialize PacketHandler instance
 # Set the protocol version
 # Get methods and members of Protocol1PacketHandler or Protocol2PacketHandler
-packetHandler = PacketHandler(PROTOCOL_VERSION)
+packetHandler = Protocol1PacketHandler()
+# for Protocol 1.0 Packet
+PKT_HEADER0 = 0
+PKT_HEADER1 = 1
+PKT_ID = 2
+PKT_LENGTH = 3
+PKT_INSTRUCTION = 4
+PKT_ERROR = 4
+PKT_PARAMETER0 = 5
 
 # Initialize GroupSyncWrite instance
 groupSyncWrite = GroupSyncWrite(portHandler, packetHandler, ADDR_AX12A_GOAL_POSITION, LEN_AX12A_GOAL_POSITION)
@@ -69,14 +88,156 @@ else:
     getch()
     quit()
 
+# Fix some error in library for read4ByteTxRx
+
+def read4ByteTxRx(port, dxl_id, address):
+    data, result, error = readTxRx(port, dxl_id, address, 4)
+    data_read = DXL_MAKEDWORD(DXL_MAKEWORD(data[0], data[1]),
+                                DXL_MAKEWORD(data[2], data[3])) if (result == COMM_SUCCESS) else 0
+    return data_read, result, error
+
+def readTxRx(port, dxl_id, address, length):
+    PKT_PARAMETER0 = 5
+    txpacket = [0] * 8
+    data = []
+
+    if dxl_id >= BROADCAST_ID:
+        return data, COMM_NOT_AVAILABLE, 0
+
+    txpacket[PKT_ID] = dxl_id
+    txpacket[PKT_LENGTH] = 4
+    txpacket[PKT_INSTRUCTION] = INST_READ
+    txpacket[PKT_PARAMETER0 + 0] = address
+    txpacket[PKT_PARAMETER0 + 1] = length
+
+    rxpacket, result, error = txRxPacket(port, txpacket)
+    if result == COMM_SUCCESS:
+        error = rxpacket[PKT_ERROR]
+
+        data.extend(rxpacket[PKT_PARAMETER0: PKT_PARAMETER0 + length])
+
+    return data, result, error
+
+def txRxPacket(port, txpacket):
+    rxpacket = None
+    error = 0
+
+    # tx packet
+    result = packetHandler.txPacket(port, txpacket)
+    if result != COMM_SUCCESS:
+        return rxpacket, result, error
+
+    # (Instruction == BulkRead) == this function is not available.
+    if txpacket[PKT_INSTRUCTION] == INST_BULK_READ:
+        result = COMM_NOT_AVAILABLE
+
+    # (ID == Broadcast ID) == no need to wait for status packet or not available
+    if (txpacket[PKT_ID] == BROADCAST_ID):
+        port.is_using = False
+        return rxpacket, result, error
+
+    # set packet timeout
+    if txpacket[PKT_INSTRUCTION] == INST_READ:
+        port.setPacketTimeout(txpacket[PKT_PARAMETER0 + 1] + 6)
+    else:
+        port.setPacketTimeout(6)  # HEADER0 HEADER1 ID LENGTH ERROR CHECKSUM
+
+    # rx packet
+    while True:
+        rxpacket, result = rxPacket(port)
+        if result != COMM_SUCCESS or txpacket[PKT_ID] == rxpacket[PKT_ID]:
+            break
+
+    if result == COMM_SUCCESS and txpacket[PKT_ID] == rxpacket[PKT_ID]:
+        error = rxpacket[PKT_ERROR]
+
+    return rxpacket, result, error
+
+def rxPacket(port):
+    rxpacket = []
+
+    result = COMM_TX_FAIL
+    checksum = 0
+    rx_length = 0
+    wait_length = 10  # minimum length (HEADER0 HEADER1 ID LENGTH ERROR CHKSUM)
+    # FIX: CHANGED 6 TO 10 for read_pos
+
+    while True:
+        rxpacket.extend(port.readPort(wait_length - rx_length))
+        rx_length = len(rxpacket)
+        if rx_length >= wait_length:
+            # find packet header
+            for idx in range(0, (rx_length - 1)):
+                if (rxpacket[idx] == 0xFF) and (rxpacket[idx + 1] == 0xFF):
+                    break
+
+            if idx == 0:  # found at the beginning of the packet
+                if (rxpacket[PKT_ID] > 0xFD) or (rxpacket[PKT_LENGTH] > RXPACKET_MAX_LEN) or (
+                        rxpacket[PKT_ERROR] > 0x7F):
+                    # unavailable ID or unavailable Length or unavailable Error
+                    # remove the first byte in the packet
+                    del rxpacket[0]
+                    rx_length -= 1
+                    continue
+
+                # re-calculate the exact length of the rx packet
+                if wait_length != (rxpacket[PKT_LENGTH] + PKT_LENGTH + 1):
+                    wait_length = rxpacket[PKT_LENGTH] + PKT_LENGTH + 1
+                    continue
+
+                if rx_length < wait_length:
+                    # check timeout
+                    if port.isPacketTimeout():
+                        if rx_length == 0:
+                            result = COMM_RX_TIMEOUT
+                        else:
+                            result = COMM_RX_CORRUPT
+                        break
+                    else:
+                        continue
+
+                # calculate checksum
+                for i in range(2, wait_length - 1):  # except header, checksum
+                    checksum += rxpacket[i]
+                checksum = ~checksum & 0xFF
+
+                # verify checksum
+                if rxpacket[wait_length - 1] == checksum:
+                    result = COMM_SUCCESS
+                else:
+                    result = COMM_RX_CORRUPT
+                break
+
+            else:
+                # remove unnecessary packets
+                del rxpacket[0: idx]
+                rx_length -= idx
+
+        else:
+            # check timeout
+            if port.isPacketTimeout():
+                if rx_length == 0:
+                    result = COMM_RX_TIMEOUT
+                else:
+                    result = COMM_RX_CORRUPT
+                break
+
+    port.is_using = False
+
+    #print "[RxPacket] %r" % rxpacket
+
+    return rxpacket, result
+
+# end fix
+
 # Function to Enabling/Disabling torque
 def torque_enable(id):
     dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(portHandler, id, ADDR_AX12A_TORQUE_ENABLE, TORQUE_ENABLE)
     if dxl_comm_result != COMM_SUCCESS:
-        time.sleep(0.1)
+        
         return torque_enable(id)
     elif dxl_error != 0:
-        time.sleep(0.1)
+        
         return torque_enable(id)
     else:
         print("Enable Dynamixel#%d success" % id)
@@ -85,10 +246,10 @@ def torque_enable(id):
 def torque_disable(id):
     dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(portHandler, id, ADDR_AX12A_TORQUE_ENABLE, TORQUE_DISABLE)
     if dxl_comm_result != COMM_SUCCESS:
-        time.sleep(0.1)
+        
         return torque_disable(id)
     elif dxl_error != 0:
-        time.sleep(0.1)
+        
         return torque_disable(id)
     else:
         print("Disable Dynamixel#%d success" %id)
@@ -99,17 +260,19 @@ def add_params(id,params):
     dxl_addparam_result = groupSyncWrite.addParam(id, params)
     if dxl_addparam_result != True:
         print("[ID:%03d] groupSyncWrite addparam failed. Retrying..." % id)
-        time.sleep(0.1)
+        
         add_params(id,params)
 
 # Function to read present angle for motor #id, output radians
 def read_pos(id,enable_msg):
-    dxl_present_position, dxl_comm_result, dxl_error = packetHandler.read4ByteTxRx(portHandler, id, ADDR_AX12A_PRESENT_POSITION)
+    dxl_present_position, dxl_comm_result, dxl_error = read4ByteTxRx(portHandler, id, ADDR_AX12A_PRESENT_POSITION)
     if dxl_comm_result != COMM_SUCCESS:
-        time.sleep(0.1)
+        
+        
         return read_pos(id,enable_msg)
     elif dxl_error != 0:
-        time.sleep(0.1)
+        
+        
         return read_pos(id,enable_msg)
     else:
         if(dxl_present_position > 1023 or dxl_present_position<0):
@@ -122,10 +285,10 @@ def read_pos(id,enable_msg):
 def set_wheel(id):
     dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(portHandler, id, ADDR_AX12A_CCW_ANGLE_LIMIT, 0)
     if dxl_comm_result != COMM_SUCCESS:
-        time.sleep(0.1)
+        
         return set_wheel(id)
     elif dxl_error != 0:
-        time.sleep(0.1)
+        
         return set_wheel(id)
     else:
         print("Dynamixel#%d has been set as wheel mode" % id)
@@ -135,10 +298,10 @@ def set_wheel(id):
 def set_joint_speed(id,speed):
     dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(portHandler, id, ADDR_AX12A_MOVE_SPEED, speed)
     if dxl_comm_result != COMM_SUCCESS:
-        time.sleep(0.1)
+        
         return set_joint_speed(id,speed)
     elif dxl_error != 0:
-        time.sleep(0.1)
+        
         return set_joint_speed(id,speed)
     else:
         print("Dynamixel#%d speed has been set" % id)
@@ -147,6 +310,7 @@ def set_joint_speed(id,speed):
 class Kinematics:
     # AX12A/AX18A rotate 300 degrees
     def __init__(self, length1, length2, length3, length4):
+        print("Start initialise")
         self.length = [length1,length2,length3,length4]
         self.joint = [0,0,0,0] # joint = real joint angles (motor angles), non-offset. dynamixel_write/read use this
         self.theta = [0,0,0,0] # theta = angles based on fixed axes, non-offset. fk/ik use this
@@ -196,7 +360,7 @@ class Kinematics:
             else:
                 return x
         # save as non-offset for easier analysis
-        self.joint = [unoffset_angle(read_pos(DXL1_ID,1)),unoffset_angle(read_pos(DXL2_ID,1)),unoffset_angle(read_pos(DXL3_ID,1)),unoffset_angle(read_pos(DXL4_ID,1))]
+        self.joint = [unoffset_angle(read_pos(DXL1_ID,0)),unoffset_angle(read_pos(DXL2_ID,0)),unoffset_angle(read_pos(DXL3_ID,0)),unoffset_angle(read_pos(DXL4_ID,0))]
         joint = self.joint
         self.theta = [joint[0],round_angle(joint[1]+joint[0]),round_angle(joint[2]+joint[1]+joint[0]),joint[3]]
         print("dynamixel_read: Read current angles: %s" %[round(np.rad2deg(joint),2) for joint in self.joint])
@@ -262,18 +426,19 @@ class Kinematics:
         # Clear syncwrite parameter storage
         groupSyncWrite.clearParam()
 
-        print("waiting to stop moving...")
+        print("Waiting to stop moving...")
         while 1:
             # both angle and present_position already offset
             dxl1_present_position = int(read_pos(DXL1_ID,0)/300/np.pi*180*1024)
             dxl2_present_position = int(read_pos(DXL2_ID,0)/300/np.pi*180*1024)
             dxl3_present_position = int(read_pos(DXL3_ID,0)/300/np.pi*180*1024)
             dxl4_present_position = int(read_pos(DXL4_ID,0)/300/np.pi*180*1024)
-            if ((abs(angle1 - dxl1_present_position) < DXL_MOVING_STATUS_THRESHOLD) and \
-                (abs(angle2 - dxl2_present_position) < DXL_MOVING_STATUS_THRESHOLD) and \
-                (abs(angle3 - dxl3_present_position) < DXL_MOVING_STATUS_THRESHOLD) and \
-                (abs(angle4 - dxl4_present_position) < DXL_MOVING_STATUS_THRESHOLD)):
+            if ((abs(angle1 - dxl1_present_position) <= DXL_MOVING_STATUS_THRESHOLD) and \
+                (abs(angle2 - dxl2_present_position) <= DXL_MOVING_STATUS_THRESHOLD) and \
+                (abs(angle3 - dxl3_present_position) <= DXL_MOVING_STATUS_THRESHOLD) and \
+                (abs(angle4 - dxl4_present_position) <= DXL_MOVING_STATUS_THRESHOLD)):
                 break
+        print("Stopped")
 
         # Disable Dynamixel Torque
         torque_disable(DXL1_ID)
@@ -282,6 +447,7 @@ class Kinematics:
         torque_disable(DXL4_ID)
         
         # Update final angles, save as unoffset for easier analysis
+        print("Verifying final angles...")
         self.dynamixel_read()
         print("Written the following new angles: %s" % [round(np.rad2deg(joint),2) for joint in self.joint])
         print("-end-")
@@ -384,31 +550,33 @@ class Kinematics:
         print("original pos: %s" %([round(item,2) for item in self.fk(theta)]))
         print("APPLY JOINT LIMIT")
         # applying joint limit to result
-        if (joint[0] > np.pi/2 and joint[0] < np.pi*3/2):
-            if abs(joint[0] - np.pi/2) < abs(joint[0] - np.pi*3/2):
+        JOINT_LIM_HIGH = np.pi/2 - np.pi/6
+        JOINT_LIM_LOW = np.pi*3/2 + np.pi/6
+        if (joint[0] > JOINT_LIM_HIGH and joint[0] < JOINT_LIM_LOW):
+            if abs(joint[0] - JOINT_LIM_HIGH) < abs(joint[0] - JOINT_LIM_LOW):
                 print("joint 1 is over limit and closer to 90 degrees")
-                joint[0] = theta[0] = np.pi/2
+                joint[0] = theta[0] = JOINT_LIM_HIGH
             else:
                 print("joint 1 is over limit and closer to 270 degrees")
-                joint[0] = theta[0] = np.pi*3/2
-        if (joint[1] > np.pi/2 and joint[1] < np.pi*3/2):
-            if abs(joint[1] - np.pi/2) < abs(joint[1] - np.pi*3/2):
+                joint[0] = theta[0] = JOINT_LIM_LOW
+        if (joint[1] > JOINT_LIM_HIGH and joint[1] < JOINT_LIM_LOW):
+            if abs(joint[1] - JOINT_LIM_HIGH) < abs(joint[1] - JOINT_LIM_LOW):
                 print("joint 2 is over limit and closer to 90 degrees")
-                joint[1] = np.pi/2
-                theta[1] = round_angle(np.pi/2+theta[0])
+                joint[1] = JOINT_LIM_HIGH
+                theta[1] = round_angle(JOINT_LIM_HIGH+theta[0])
             else:
                 print("joint 2 is over limit and closer to 270 degrees")
-                joint[1] = np.pi*3/2
-                theta[1] = round_angle(np.pi*3/2+theta[0])
-        if (joint[2] > np.pi/2 and joint[2] < np.pi*3/2):
-            if abs(joint[2] - np.pi/2) < abs(joint[2] - np.pi*3/2):
+                joint[1] = JOINT_LIM_LOW
+                theta[1] = round_angle(JOINT_LIM_LOW+theta[0])
+        if (joint[2] > JOINT_LIM_HIGH and joint[2] < JOINT_LIM_LOW):
+            if abs(joint[2] - JOINT_LIM_HIGH) < abs(joint[2] - JOINT_LIM_LOW):
                 print("joint 3 is over limit and closer to 90 degrees")
-                joint[2] = np.pi/2
-                theta[2] = round_angle(np.pi*3/2+theta[1])
+                joint[2] = JOINT_LIM_HIGH
+                theta[2] = round_angle(JOINT_LIM_LOW+theta[1])
             else:
                 print("joint 3 is over limit and closer to 270 degrees")
-                joint[2] = np.pi*3/2
-                theta[2] = round_angle(np.pi*3/2+theta[1])
+                joint[2] = JOINT_LIM_LOW
+                theta[2] = round_angle(JOINT_LIM_LOW+theta[1])
         print("final theta: %s" %[round(np.rad2deg(item),2) for item in theta])
         print("final joint: %s" %[round(np.rad2deg(item),2) for item in joint])
         print("final pos: %s" %([round(item,2) for item in self.fk(theta)]))
@@ -429,7 +597,7 @@ class Kinematics:
 
     # Input = 1: grip, 0: ungrip
     def grip(self, input):
-        CLOSE_POS = 1023
+        CLOSE_POS = 512
         OPEN_POS = 0
         if input == 1:
             enabled = torque_enable(DXL5_ID)
@@ -446,9 +614,10 @@ class Kinematics:
 
             print("Waiting to stop moving...")
             while 1:
-                dxl5_present_position = int(read_pos(DXL5_ID,1)/300/np.pi*180*1024)
-                if ((abs(CLOSE_POS - dxl5_present_position) < DXL_MOVING_STATUS_THRESHOLD)):
+                dxl5_present_position = int(read_pos(DXL5_ID,0)/300/np.pi*180*1024)
+                if ((abs(CLOSE_POS - dxl5_present_position) <= DXL_MOVING_STATUS_THRESHOLD)):
                     break
+            print("Stopped")
 
             torque_disable(DXL5_ID)
             print("Gripper activated!")
@@ -468,51 +637,67 @@ class Kinematics:
             
             print("Waiting to stop moving...")
             while 1:
-                dxl5_present_position = int(read_pos(DXL5_ID,1)/300/np.pi*180*1024)
-                if ((abs(OPEN_POS - dxl5_present_position) < DXL_MOVING_STATUS_THRESHOLD)):
+                dxl5_present_position = int(read_pos(DXL5_ID,0)/300/np.pi*180*1024)
+                if ((abs(OPEN_POS - dxl5_present_position) <= DXL_MOVING_STATUS_THRESHOLD)):
                     break
+            print("Stopped")
 
             torque_disable(DXL5_ID)
             print("Gripper deactivated!")
             return 1
 
     # Dispense a card
-    # Still based on fixed interval, will replace to sensor in the future
+    # Connected to digital distance sensor through arduino
     def dispense(self):
-        def loop(x):
-            if(x == 1): #CW
-                SPEED = 1374   #0-1023 ccw, 1024 - 2047 CW
-                STOP_SPEED = 1024   #0 for CCW, 1024 for CW
-                INTERVAL = 3
-            else: #CCW
-                SPEED = 350   #0-1023 ccw, 1024 - 2047 CW
-                STOP_SPEED = 0   #0 for CCW, 1024 for CW
-                INTERVAL = 2
+        # Start serial communication with arduino
+        dist_sensor = serial.Serial(ARDUINO_PORT, ARDUINO_BAUD)
+        CW_SPEED = 1374   #0-1023 ccw, 1024 - 2047 CW
+        CW_STOP_SPEED = 1024   #0 for CCW, 1024 for CW
+        CCW_SPEED = 350   #0-1023 ccw, 1024 - 2047 CW
+        CCW_STOP_SPEED = 0   #0 for CCW, 1024 for CW
+        CCW_INTERVAL = 1.5
 
-            enabled = torque_enable(DXL6_ID)
-            if (enabled != 1):
-                print("Fail to enable motor 6")
-                return 0
+        enabled = torque_enable(DXL6_ID)
+        if (enabled != 1):
+            print("Fail to enable motor 6")
+            return 0
 
-            # Write goal speed
-            dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_MOVE_SPEED, SPEED)
-            if dxl_comm_result != COMM_SUCCESS:
-                print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
-            elif dxl_error != 0:
-                print("%s" % packetHandler.getRxPacketError(dxl_error))
-            
-            time.sleep(INTERVAL)
+        # Start dispensing
+        dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_MOVE_SPEED, CW_SPEED)
+        if dxl_comm_result != COMM_SUCCESS:
+            print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+        elif dxl_error != 0:
+            print("%s" % packetHandler.getRxPacketError(dxl_error))
+        
+        while (dist_sensor.readline() != b'1\r\n'):
+            dist_sensor.flush()
 
-            # Stop
-            dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_MOVE_SPEED, STOP_SPEED)
-            if dxl_comm_result != COMM_SUCCESS:
-                print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
-            elif dxl_error != 0:
-                print("%s" % packetHandler.getRxPacketError(dxl_error))
+        # Stop
+        dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_MOVE_SPEED, CW_STOP_SPEED)
+        if dxl_comm_result != COMM_SUCCESS:
+            print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+        elif dxl_error != 0:
+            print("%s" % packetHandler.getRxPacketError(dxl_error))
 
-            torque_disable(DXL6_ID)
-        loop(1)
-        loop(0)
+        time.sleep(0.5)
+
+        # Retract
+        dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_MOVE_SPEED, CCW_SPEED)
+        if dxl_comm_result != COMM_SUCCESS:
+            print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+        elif dxl_error != 0:
+            print("%s" % packetHandler.getRxPacketError(dxl_error))
+
+        time.sleep(CCW_INTERVAL)
+
+        # Stop
+        dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(portHandler, DXL6_ID, ADDR_AX12A_MOVE_SPEED, CCW_STOP_SPEED)
+        if dxl_comm_result != COMM_SUCCESS:
+            print("%s" % packetHandler.getTxRxResult(dxl_comm_result))
+        elif dxl_error != 0:
+            print("%s" % packetHandler.getRxPacketError(dxl_error))
+        
+        torque_disable(DXL6_ID)
         print("Card dispensed!")
         return 1
         
@@ -536,8 +721,8 @@ while (1):
             break
     elif (mode == 3):
         pos = read_pos(DXL5_ID,1)
-        print("\nCurrent gripper pos: %s" %pos)
-        if (pos > np.pi):
+        print("\nCurrent gripper pos: %s" %(pos/np.pi*180/300*1024))
+        if (pos > np.pi/2):
             chain1.grip(0)
         else:
             chain1.grip(1)
