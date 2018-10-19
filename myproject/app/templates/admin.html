@@ -1,0 +1,153 @@
+<html>
+<head>
+    <title>Casino Machine</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0">
+
+    <script src="static/script/jquery.min.js"></script>
+    <link rel="stylesheet" href="static/css/bootstrap.css">
+    <link rel="stylesheet" href="static/css/bootstrap.min.css">
+    <link rel="stylesheet" href="static/css/general.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
+    <script type="text/javascript" src="static/script/adminscript.js"></script>
+    <script src="static/script/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="static/css/font-awesome.min.css">
+    
+    <div class="container">
+        <br><br>
+        <div class="row ">
+            <div class="col-sm-12">
+                <div class="card bg-default mb-3">
+                  <div class="card-header">Arduino Stimulation</div>
+                  <div class="card-body">
+                    <div class="row">
+                      <div class="col-sm-6">
+                        <center><button class="btn btn-secondary btn-sm" onclick="SendYES()">YES</button></center>
+                      </div>
+                      <div class="col-sm-6">
+                        <center><button class="btn btn-secondary btn-sm" onclick="SendNO()">NO</button></center>
+                      </div>
+                      <div class="col-sm-6">
+                        <center><button class="btn btn-secondary btn-sm" onclick="kek()">TEST</button></center>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th scope="col" style="width:15%;">Type</th>
+                      <th scope="col" style="width:35%;">Variable Name</th>
+                      <th scope="col" style="width:50%;">Data</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+
+                    <!--System-->
+
+                    <tr>
+                      <th scope="row">System</th>
+                      <td>CardStationPosition</td>
+                      <td id="CardStationPosition"></td>
+                    </tr>
+                    
+
+                    <!--UI-->
+
+                    <tr>
+                      <th scope="row">UI</th>
+                      <td>Jumbotron_title</td>
+                      <td id="Jumbotron_title"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>Jumbotron_text1</td>
+                      <td id="Jumbotron_text1"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>Jumbotron_text2</td>
+                      <td id="Jumbotron_text2"></td>
+                    </tr>
+
+                    <!--Dealer-->
+
+                    <tr>
+                      <th scope="row">Dealer</th>
+                      <td>ArmPosition</td>
+                      <td id="ArmPosition"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>ArmCard</td>
+                      <td id="ArmCard"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>ArmCardValue</td>
+                      <td id="ArmCardValue"></td>
+                    </tr>
+
+                    <!--Player1-->
+
+                    <tr>
+                      <th scope="row">P1</th>
+                      <td>Player1Position</td>
+                      <td id="Player1Position"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>Player1Card</td>
+                      <td id="Player1Card"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>Player1CardValue</td>
+                      <td id="Player1CardValue"></td>
+                    </tr>
+
+                    <!--Player2-->
+
+                    <tr>
+                      <th scope="row">P2</th>
+                      <td>Player2Position</td>
+                      <td id="Player2Position"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>Player2Card</td>
+                      <td id="Player2Card"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>Player2CardValue</td>
+                      <td id="Player2CardValue"></td>
+                    </tr>
+
+                    <!--Player3-->
+
+                    <tr>
+                      <th scope="row">P3</th>
+                      <td>Player3Position</td>
+                      <td id="Player3Position"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>Player3Card</td>
+                      <td id="Player3Card"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row"></th>
+                      <td>Player3CardValue</td>
+                      <td id="Player3CardValue"></td>
+                    </tr>
+
+                  </tbody>
+                </table> 
+            </div>
+        </div>
+    </div>
+
+</head>
+</html>

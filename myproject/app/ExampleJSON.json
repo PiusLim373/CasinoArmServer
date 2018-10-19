@@ -1,0 +1,25 @@
+{
+	"players":[
+		{
+			"id":1,
+			"position":{
+				"distance":123.321,
+				"angle":123.123
+			}
+		},
+		{
+			"id":2,
+			"position":{
+				"distance":456.456,
+				"angle":456.654
+			}
+		},
+		{
+			"id":3,
+			"position":{
+				"distance":789.789,
+				"angle":789.987
+			}
+		}
+	]
+}
