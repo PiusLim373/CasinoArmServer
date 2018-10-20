@@ -1,6 +1,6 @@
 import os
 import time
-import random
+
 import numpy as np
 import serial
 
@@ -24,7 +24,6 @@ class Kinematics:
 
     # Data Byte Length
     LEN_AX12A_GOAL_POSITION       = 2
-    LEN_AX12A_PRESENT_POSITION    = 4
 
     # Control table address
     ADDR_AX12A_TORQUE_ENABLE      = 24                 # Control table address is different in Dynamixel model
@@ -331,10 +330,10 @@ class Kinematics:
 
         # initialise
         self.set_wheel(self.DXL6_ID)
-        self.set_joint_speed(self.DXL1_ID,100)
-        self.set_joint_speed(self.DXL2_ID,100)
-        self.set_joint_speed(self.DXL3_ID,100)
-        self.set_joint_speed(self.DXL4_ID,100)
+        self.set_joint_speed(self.DXL1_ID,200)
+        self.set_joint_speed(self.DXL2_ID,200)
+        self.set_joint_speed(self.DXL3_ID,200)
+        self.set_joint_speed(self.DXL4_ID,200)
         self.set_joint_speed(self.DXL5_ID,300)
         self.grip(0)
         self.dynamixel_write([0,0,0,0])
@@ -756,9 +755,7 @@ class Kinematics:
         dist_sensor.close()
         return 1
         
-# Main loop
-chain1 = Kinematics(28,28,7,4)    # joint variables
-mode = 1
+'''mode = 1
 while (1):
     #mode = int(input("select what you want to do(1:move_to, 2: dispense card, 3: grip, 4: view variables): "))
     
@@ -812,3 +809,4 @@ while (1):
         print("press any key to continue, or ESC to quit")
         if getch() == chr(0x1b):
             break
+'''

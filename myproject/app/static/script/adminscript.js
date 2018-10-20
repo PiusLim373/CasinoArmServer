@@ -42,7 +42,7 @@ function kek(){
                 
                 var admin = new XMLHttpRequest();
                 
-                admin.open('GET', 'http://localhost:5000/adminfeeds', true);
+                admin.open('GET', 'http://192.168.1.103:5000/adminfeeds', true);
                 
                 admin.onload = function() {
                     var data = JSON.parse(this.responseText);

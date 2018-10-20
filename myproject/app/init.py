@@ -9,12 +9,11 @@ import serial
 import collections
 from Debug import pakzan
 from arm_pos import ik
-
 app = Flask(__name__)
 
-Player1Position = []
-Player2Position = []
-Player3Position = []
+Player1Position = [30, 20, 5]
+Player2Position = [15, 15, 3]
+Player3Position = [40,10,6]
 
 Player1Card = []
 Player2Card = []
@@ -27,7 +26,7 @@ Player3CardValue = 0
 ArmPosition = [0, 0, 0]   #This is position of Arm's Card deck
 ArmCard = []
 ArmCardValue = 0
-CardStationPosition = [1,2,3]
+CardStationPosition = [67,0,0]
 
 Jumbotron_title = ""
 Jumbotron_text1 = ""
@@ -38,6 +37,8 @@ test_i = 0
 decision = ""
 ActivateArduino = "NO"
 ArduinoData = ""
+
+chain1 = ik.Kinematics(28,28,7,4)
 
 @app.route('/kek', methods = ['POST'])
 def kekk():
@@ -59,17 +60,12 @@ def CalculatePosition(distance, angle):
 
 def Distribute1Card(coordinate, card):
 	global test_i
-	CSx = CardStationPosition[0]
-	CSy = CardStationPosition[1]
-	CSz = CardStationPosition[2]
-	x = coordinate[0]
-	y = coordinate[1]
-	z = coordinate[2]
+	chain1.dispense()
 	card.append(pakzan.readValue(test_i))
-	ik.chain1_move_to(CSx, CSy, CSz)
-	ik.pickupcard()
-	ik.chain1_move_to(x, y ,z)
-	ik.releasecard()
+	chain1.move_to(CardStationPosition)
+	chain1.grip(1)
+	chain1.move_to(coordinate)
+	chain1.grip(0)
 	test_i += 1
 	return "0"
 
@@ -153,8 +149,8 @@ def OpenCardDeck(coordinate):
 	x = coordinate[0]
 	y = coordinate[1]
 	z = coordinate[2]
-	ik.chain1_move_to(x, y, z)  #Move to deck's front
-	ik.chain1_move_to(x+10, y, z)  #Push deck until fall
+	chain1.move_to([x, y, z])  #Move to deck's front
+	chain1.move_to([x+10, y, z])  #Push deck until fall
 	return "0"
 
 
@@ -181,10 +177,7 @@ def EndGame(value1, value2, value3, value0):
 @app.route('/')
 def index():
 	global test_i, Player1Position, Player2Position, Player3Position, Player1Card, Player2Card, Player3Card, Player1CardValue, Player2CardValue, Player3CardValue, ArmCard, ArmCardValue, ActivateArduino, ArduinoData
-	Player1Position = []
-	Player2Position = []
-	Player3Position = []
-
+	
 	Player1Card = []
 	Player2Card = []
 	Player3Card = []
@@ -209,9 +202,9 @@ def StartGame():
 	FaceRecog_json = json.loads(FaceRecog)
 	global Player1Position, Player2Position, Player3Position, ResetBtn
 	ResetBtn = ""
-	Player1Position = CalculatePosition(float(FaceRecog_json['players'][0]['position']['distance']), float(FaceRecog_json['players'][0]['position']['angle']))
-	Player2Position = CalculatePosition(float(FaceRecog_json['players'][1]['position']['distance']), float(FaceRecog_json['players'][1]['position']['angle']))
-	Player3Position = CalculatePosition(float(FaceRecog_json['players'][2]['position']['distance']), float(FaceRecog_json['players'][2]['position']['angle']))
+	#Player1Position = CalculatePosition(float(FaceRecog_json['players'][0]['position']['distance']), float(FaceRecog_json['players'][0]['position']['angle']))
+	#Player2Position = CalculatePosition(float(FaceRecog_json['players'][1]['position']['distance']), float(FaceRecog_json['players'][1]['position']['angle']))
+	#Player3Position = CalculatePosition(float(FaceRecog_json['players'][2]['position']['distance']), float(FaceRecog_json['players'][2]['position']['angle']))
 	print(Player1Position)
 	print(Player2Position)
 	print(Player3Position)
@@ -327,4 +320,4 @@ def ActualGameProgress():
 
 
 if __name__ == '__main__':
-	app.run(host = "192.168.1.106", debug = True)
+	app.run(host = "192.168.1.103", debug = True, use_reloader=False)
