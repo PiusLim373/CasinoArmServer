@@ -10,10 +10,10 @@ import collections
 <<<<<<< HEAD
 <<<<<<< HEAD
 from Debug import pakzan
-<<<<<<< HEAD
 print("before IK")
 import ik
 print("after IK")
+<<<<<<< HEAD
 =======
 from arm_pos import ik
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
@@ -27,6 +27,8 @@ from Debug import ik, pakzan
 #from arm_pos import ik
 
 >>>>>>> parent of d451ae9... after full run 1.0
+=======
+>>>>>>> parent of a9ac3bf... Merge branch 'master' of https://github.com/PiusLim373/CasinoArmServer
 app = Flask(__name__)
 
 Player1Position = []
@@ -44,7 +46,7 @@ Player3CardValue = 0
 ArmPosition = [0, 0, 0]   #This is position of Arm's Card deck
 ArmCard = []
 ArmCardValue = 0
-CardStationPosition = [67,0,0]
+CardStationPosition = [1,2,3]
 
 Jumbotron_title = ""
 Jumbotron_text1 = ""
@@ -59,11 +61,10 @@ ArduinoData = ""
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
-chain1 = ik.chain1
+<<<<<<< HEAD
 =======
-# Declare robot arm object
-chain1 = ik.Kinematics(28,28,7,4)
->>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
+>>>>>>> parent of a9ac3bf... Merge branch 'master' of https://github.com/PiusLim373/CasinoArmServer
+chain1 = ik.chain1
 
 =======
 >>>>>>> parent of d451ae9... after full run 1.0
@@ -93,18 +94,19 @@ def Distribute1Card(coordinate, card):
 <<<<<<< HEAD
 	chain1.dispense()
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> parent of d451ae9... after full run 1.0
 =======
 >>>>>>> parent of d451ae9... after full run 1.0
+=======
+>>>>>>> parent of a9ac3bf... Merge branch 'master' of https://github.com/PiusLim373/CasinoArmServer
 	CSx = CardStationPosition[0]
 	CSy = CardStationPosition[1]
 	CSz = CardStationPosition[2]
 	x = coordinate[0]
 	y = coordinate[1]
 	z = coordinate[2]
-=======
->>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
 	card.append(pakzan.readValue(test_i))
 	ik.chain1_move_to(CSx, CSy, CSz)
 	ik.pickupcard()
@@ -196,6 +198,7 @@ def OpenCardDeck(coordinate):
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	chain1.move_to(x, y, z)  #Move to deck's front
 	chain1.move_to(x+10, y, z)  #Push deck until fall
 =======
@@ -210,6 +213,10 @@ def OpenCardDeck(coordinate):
 	ik.chain1_move_to(x, y, z)  #Move to deck's front
 	ik.chain1_move_to(x+10, y, z)  #Push deck until fall
 >>>>>>> parent of d451ae9... after full run 1.0
+=======
+	chain1.move_to(x, y, z)  #Move to deck's front
+	chain1.move_to(x+10, y, z)  #Push deck until fall
+>>>>>>> parent of a9ac3bf... Merge branch 'master' of https://github.com/PiusLim373/CasinoArmServer
 	return "0"
 
 
@@ -236,7 +243,10 @@ def EndGame(value1, value2, value3, value0):
 @app.route('/')
 def index():
 	global test_i, Player1Position, Player2Position, Player3Position, Player1Card, Player2Card, Player3Card, Player1CardValue, Player2CardValue, Player3CardValue, ArmCard, ArmCardValue, ActivateArduino, ArduinoData
-	
+	Player1Position = []
+	Player2Position = []
+	Player3Position = []
+
 	Player1Card = []
 	Player2Card = []
 	Player3Card = []
@@ -382,6 +392,7 @@ if __name__ == '__main__':
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	app.run(host = "192.168.1.106", debug = True, use_reloader=False)
 =======
 	app.run(host = "192.168.1.103", debug = True, use_reloader=False)
@@ -392,3 +403,6 @@ if __name__ == '__main__':
 =======
 	app.run(host = "192.168.1.106", debug = True)
 >>>>>>> parent of d451ae9... after full run 1.0
+=======
+	app.run(host = "192.168.1.106", debug = True, use_reloader=False)
+>>>>>>> parent of a9ac3bf... Merge branch 'master' of https://github.com/PiusLim373/CasinoArmServer
