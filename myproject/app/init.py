@@ -7,6 +7,7 @@ import subprocess
 from pprint import pprint
 import serial
 import collections
+<<<<<<< HEAD
 from Debug import pakzan
 <<<<<<< HEAD
 print("before IK")
@@ -15,11 +16,16 @@ print("after IK")
 =======
 from arm_pos import ik
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
+=======
+from Debug import ik, pakzan
+#from arm_pos import ik
+
+>>>>>>> parent of d451ae9... after full run 1.0
 app = Flask(__name__)
 
-Player1Position = [30, 20, 5]
-Player2Position = [15, 15, 3]
-Player3Position = [40,10,6]
+Player1Position = []
+Player2Position = []
+Player3Position = []
 
 Player1Card = []
 Player2Card = []
@@ -45,12 +51,15 @@ ActivateArduino = "NO"
 ArduinoData = ""
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 chain1 = ik.chain1
 =======
 # Declare robot arm object
 chain1 = ik.Kinematics(28,28,7,4)
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
 
+=======
+>>>>>>> parent of d451ae9... after full run 1.0
 @app.route('/kek', methods = ['POST'])
 def kekk():
 	global ActivateArduino
@@ -71,8 +80,11 @@ def CalculatePosition(distance, angle):
 
 def Distribute1Card(coordinate, card):
 	global test_i
+<<<<<<< HEAD
 	chain1.dispense()
 <<<<<<< HEAD
+=======
+>>>>>>> parent of d451ae9... after full run 1.0
 	CSx = CardStationPosition[0]
 	CSy = CardStationPosition[1]
 	CSz = CardStationPosition[2]
@@ -82,10 +94,10 @@ def Distribute1Card(coordinate, card):
 =======
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
 	card.append(pakzan.readValue(test_i))
-	chain1.move_to(CardStationPosition)
-	chain1.grip(1)
-	chain1.move_to(coordinate)
-	chain1.grip(0)
+	ik.chain1_move_to(CSx, CSy, CSz)
+	ik.pickupcard()
+	ik.chain1_move_to(x, y ,z)
+	ik.releasecard()
 	test_i += 1
 	return "0"
 
@@ -170,12 +182,17 @@ def OpenCardDeck(coordinate):
 	y = coordinate[1]
 	z = coordinate[2]
 <<<<<<< HEAD
+<<<<<<< HEAD
 	chain1.move_to(x, y, z)  #Move to deck's front
 	chain1.move_to(x+10, y, z)  #Push deck until fall
 =======
 	chain1.move_to([x, y, z])  #Move to deck's front
 	chain1.move_to([x+10, y, z])  #Push deck until fall
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
+=======
+	ik.chain1_move_to(x, y, z)  #Move to deck's front
+	ik.chain1_move_to(x+10, y, z)  #Push deck until fall
+>>>>>>> parent of d451ae9... after full run 1.0
 	return "0"
 
 
@@ -227,9 +244,9 @@ def StartGame():
 	FaceRecog_json = json.loads(FaceRecog)
 	global Player1Position, Player2Position, Player3Position, ResetBtn
 	ResetBtn = ""
-	#Player1Position = CalculatePosition(float(FaceRecog_json['players'][0]['position']['distance']), float(FaceRecog_json['players'][0]['position']['angle']))
-	#Player2Position = CalculatePosition(float(FaceRecog_json['players'][1]['position']['distance']), float(FaceRecog_json['players'][1]['position']['angle']))
-	#Player3Position = CalculatePosition(float(FaceRecog_json['players'][2]['position']['distance']), float(FaceRecog_json['players'][2]['position']['angle']))
+	Player1Position = CalculatePosition(float(FaceRecog_json['players'][0]['position']['distance']), float(FaceRecog_json['players'][0]['position']['angle']))
+	Player2Position = CalculatePosition(float(FaceRecog_json['players'][1]['position']['distance']), float(FaceRecog_json['players'][1]['position']['angle']))
+	Player3Position = CalculatePosition(float(FaceRecog_json['players'][2]['position']['distance']), float(FaceRecog_json['players'][2]['position']['angle']))
 	print(Player1Position)
 	print(Player2Position)
 	print(Player3Position)
@@ -346,7 +363,11 @@ def ActualGameProgress():
 
 if __name__ == '__main__':
 <<<<<<< HEAD
+<<<<<<< HEAD
 	app.run(host = "192.168.1.106", debug = True, use_reloader=False)
 =======
 	app.run(host = "192.168.1.103", debug = True, use_reloader=False)
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
+=======
+	app.run(host = "192.168.1.106", debug = True)
+>>>>>>> parent of d451ae9... after full run 1.0
