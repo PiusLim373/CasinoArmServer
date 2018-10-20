@@ -38,6 +38,7 @@ decision = ""
 ActivateArduino = "NO"
 ArduinoData = ""
 
+# Declare robot arm object
 chain1 = ik.Kinematics(28,28,7,4)
 
 @app.route('/kek', methods = ['POST'])
