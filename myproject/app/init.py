@@ -40,7 +40,7 @@ decision = ""
 ActivateArduino = "NO"
 ArduinoData = ""
 
-chain1 = ik.chain1
+chain1 = ik.Kinematics(28,28,7,4)
 
 @app.route('/kek', methods = ['POST'])
 def kekk():
