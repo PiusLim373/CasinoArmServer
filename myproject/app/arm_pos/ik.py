@@ -1,6 +1,6 @@
 import os
 import time
-
+import random
 import numpy as np
 import serial
 
@@ -19,7 +19,7 @@ if os.name == 'nt':
 
 class Kinematics:
     # Arduino setup
-    ARDUINO_PORT = 'COM5'
+    ARDUINO_PORT = 'COM6'
     ARDUINO_BAUD = 9600
 
     # Data Byte Length
@@ -315,6 +315,15 @@ class Kinematics:
         self.length = [length1,length2,length3,length4]
         self.joint = [0,0,0,0] # joint = real joint angles (motor angles), non-offset. dynamixel_write/read use this
         self.theta = [0,0,0,0] # theta = angles based on fixed axes, non-offset. fk/ik use this
+        
+        # Enable Dynamixels Torque
+        self.torque_enable(self.DXL1_ID)
+        self.torque_enable(self.DXL2_ID)
+        self.torque_enable(self.DXL3_ID)
+        self.torque_enable(self.DXL4_ID)
+        self.torque_enable(self.DXL5_ID)
+        self.torque_enable(self.DXL6_ID)
+
         self.dynamixel_read()
         # margin of error
         self.ERROR = 0.1
@@ -392,23 +401,8 @@ class Kinematics:
         angle2 = joint[1]
         angle3 = joint[2]
         angle4 = joint[3]
-        # Enable Dynamixels Torque
-        enabled1 = self.torque_enable(self.DXL1_ID)
-        enabled2 = self.torque_enable(self.DXL2_ID)
-        enabled3 = self.torque_enable(self.DXL3_ID)
-        enabled4 = self.torque_enable(self.DXL4_ID)
-        if (enabled1 != 1):
-            print("Fail to enable motor 1")
-            return 0
-        if (enabled2 != 1):
-            print("Fail to enable motor 2")
-            return 0
-        if (enabled3 != 1):
-            print("Fail to enable motor 3")
-            return 0
-        if (enabled4 != 1):
-            print("Fail to enable motor 4")
-            return 0
+
+        # FIRST LOOP
         # Allocate goal position value into byte array
         param_goal_position_1 = [DXL_LOBYTE(DXL_LOWORD(angle1)), DXL_HIBYTE(DXL_LOWORD(angle1))]
         param_goal_position_2 = [DXL_LOBYTE(DXL_LOWORD(angle2)), DXL_HIBYTE(DXL_LOWORD(angle2))]
@@ -443,11 +437,34 @@ class Kinematics:
                 break
         print("Stopped")
 
-        # Disable Dynamixel Torque
-        self.torque_disable(self.DXL1_ID)
-        self.torque_disable(self.DXL2_ID)
-        self.torque_disable(self.DXL3_ID)
-        self.torque_disable(self.DXL4_ID)
+        # SECOND LOOP
+        # Add Dynamixels goal position value to the Syncwrite parameter storage
+        self.add_params(self.DXL1_ID, param_goal_position_1)
+        self.add_params(self.DXL2_ID, param_goal_position_2)
+        self.add_params(self.DXL3_ID, param_goal_position_3)
+        self.add_params(self.DXL4_ID, param_goal_position_4)
+        
+        # Syncwrite goal position
+        dxl_comm_result = self.groupSyncWrite.txPacket()
+        if dxl_comm_result != COMM_SUCCESS:
+            print("dynamixel_write result error %s" % self.packetHandler.getTxRxResult(dxl_comm_result))
+
+        # Clear syncwrite parameter storage
+        self.groupSyncWrite.clearParam()
+
+        print("Waiting to stop moving...")
+        while 1:
+            # both angle and present_position already offset
+            dxl1_present_position = int(self.read_pos(self.DXL1_ID,0)/300/np.pi*180*1024)
+            dxl2_present_position = int(self.read_pos(self.DXL2_ID,0)/300/np.pi*180*1024)
+            dxl3_present_position = int(self.read_pos(self.DXL3_ID,0)/300/np.pi*180*1024)
+            dxl4_present_position = int(self.read_pos(self.DXL4_ID,0)/300/np.pi*180*1024)
+            if ((abs(angle1 - dxl1_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD) and \
+                (abs(angle2 - dxl2_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD) and \
+                (abs(angle3 - dxl3_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD) and \
+                (abs(angle4 - dxl4_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD)):
+                break
+        print("Stopped")
         
         # Update final angles, save as unoffset for easier analysis
         print("Verifying final angles...")
@@ -599,51 +616,84 @@ class Kinematics:
     # Input = 1: grip, 0: ungrip
     def grip(self, input):
         CLOSE_POS = 512
-        OPEN_POS = 0
+        OPEN_POS = 300
         if input == 1:
-            enabled = self.torque_enable(self.DXL5_ID)
-            if (enabled != 1):
-                print("Fail to enable motor 5")
-                return 0
-            
-            # Write goal position
-            dxl_comm_result, dxl_error = self.packetHandler.write2ByteTxRx(self.portHandler, self.DXL5_ID, self.ADDR_AX12A_GOAL_POSITION, CLOSE_POS)
+            # FIRST LOOP
+            param_goal_position = [DXL_LOBYTE(DXL_LOWORD(CLOSE_POS)), DXL_HIBYTE(DXL_LOWORD(CLOSE_POS))]
+            # Add Dynamixels goal position value to the Syncwrite parameter storage
+            self.add_params(self.DXL5_ID, param_goal_position)
+            # Syncwrite goal position
+            dxl_comm_result = self.groupSyncWrite.txPacket()
             if dxl_comm_result != COMM_SUCCESS:
-                print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
-            elif dxl_error != 0:
-                print("%s" % self.packetHandler.getRxPacketError(dxl_error))
+                print("dynamixel_write result error %s" % self.packetHandler.getTxRxResult(dxl_comm_result))
+            # Clear syncwrite parameter storage
+            self.groupSyncWrite.clearParam()
 
             print("Waiting to stop moving...")
             while 1:
-                dxl5_present_position = int(self.read_pos(self.DXL5_ID,0)/300/np.pi*180*1024)
-                if ((abs(CLOSE_POS - dxl5_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD)):
+                # both angle and present_position already offset
+                dxl_present_position = int(self.read_pos(self.DXL5_ID,0)/300/np.pi*180*1024)
+                if ((abs(CLOSE_POS - dxl_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD)):
                     break
             print("Stopped")
 
-            self.torque_disable(self.DXL5_ID)
+            # SECOND LOOP
+            # Add Dynamixels goal position value to the Syncwrite parameter storage
+            self.add_params(self.DXL5_ID, param_goal_position)
+            # Syncwrite goal position
+            dxl_comm_result = self.groupSyncWrite.txPacket()
+            if dxl_comm_result != COMM_SUCCESS:
+                print("dynamixel_write result error %s" % self.packetHandler.getTxRxResult(dxl_comm_result))
+            # Clear syncwrite parameter storage
+            self.groupSyncWrite.clearParam()
+
+            print("Waiting to stop moving...")
+            while 1:
+                # both angle and present_position already offset
+                dxl_present_position = int(self.read_pos(self.DXL5_ID,0)/300/np.pi*180*1024)
+                if ((abs(CLOSE_POS - dxl_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD)):
+                    break
+            print("Stopped")
+
             print("Gripper activated!")
-            return 1
         if input == 0:
-            enabled = self.torque_enable(self.DXL5_ID)
-            if (enabled != 1):
-                print("Fail to enable motor 5")
-                return 0
-            
-            # Write goal position
-            dxl_comm_result, dxl_error = self.packetHandler.write2ByteTxRx(self.portHandler, self.DXL5_ID, self.ADDR_AX12A_GOAL_POSITION, OPEN_POS)
+            #FIRST LOOP
+            param_goal_position = [DXL_LOBYTE(DXL_LOWORD(OPEN_POS)), DXL_HIBYTE(DXL_LOWORD(OPEN_POS))]
+            # Add Dynamixels goal position value to the Syncwrite parameter storage
+            self.add_params(self.DXL5_ID, param_goal_position)
+            # Syncwrite goal position
+            dxl_comm_result = self.groupSyncWrite.txPacket()
             if dxl_comm_result != COMM_SUCCESS:
-                print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
-            elif dxl_error != 0:
-                print("%s" % self.packetHandler.getRxPacketError(dxl_error))
-            
+                print("dynamixel_write result error %s" % self.packetHandler.getTxRxResult(dxl_comm_result))
+            # Clear syncwrite parameter storage
+            self.groupSyncWrite.clearParam()
+
             print("Waiting to stop moving...")
             while 1:
-                dxl5_present_position = int(self.read_pos(self.DXL5_ID,0)/300/np.pi*180*1024)
-                if ((abs(OPEN_POS - dxl5_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD)):
+                # both angle and present_position already offset
+                dxl_present_position = int(self.read_pos(self.DXL5_ID,0)/300/np.pi*180*1024)
+                if ((abs(OPEN_POS - dxl_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD)):
                     break
             print("Stopped")
 
-            self.torque_disable(self.DXL5_ID)
+            # SECOND LOOP
+            # Add Dynamixels goal position value to the Syncwrite parameter storage
+            self.add_params(self.DXL5_ID, param_goal_position)
+            # Syncwrite goal position
+            dxl_comm_result = self.groupSyncWrite.txPacket()
+            if dxl_comm_result != COMM_SUCCESS:
+                print("dynamixel_write result error %s" % self.packetHandler.getTxRxResult(dxl_comm_result))
+            # Clear syncwrite parameter storage
+            self.groupSyncWrite.clearParam()
+
+            print("Waiting to stop moving...")
+            while 1:
+                # both angle and present_position already offset
+                dxl_present_position = int(self.read_pos(self.DXL5_ID,0)/300/np.pi*180*1024)
+                if ((abs(OPEN_POS - dxl_present_position) <= self.DXL_MOVING_STATUS_THRESHOLD)):
+                    break
+            print("Stopped")
+
             print("Gripper deactivated!")
             return 1
 
@@ -658,18 +708,16 @@ class Kinematics:
         CCW_STOP_SPEED = 0   #0 for CCW, 1024 for CW
         CCW_INTERVAL = 1.5
 
-        enabled = self.torque_enable(self.DXL6_ID)
-        if (enabled != 1):
-            print("Fail to enable motor 6")
-            return 0
-
         # Start dispensing
         dxl_comm_result, dxl_error = self.packetHandler.write2ByteTxRx(self.portHandler, self.DXL6_ID, self.ADDR_AX12A_MOVE_SPEED, CW_SPEED)
         if dxl_comm_result != COMM_SUCCESS:
             print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
         elif dxl_error != 0:
             print("%s" % self.packetHandler.getRxPacketError(dxl_error))
+        else:
+            print("Dynamixel#%d speed has been set" % self.DXL6_ID)
         
+        #Wait for card
         while (dist_sensor.readline() != b'1\r\n'):
             dist_sensor.flush()
 
@@ -679,6 +727,8 @@ class Kinematics:
             print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
         elif dxl_error != 0:
             print("%s" % self.packetHandler.getRxPacketError(dxl_error))
+        else:
+            print("Dynamixel#%d speed has been set" % self.DXL6_ID)
 
         time.sleep(0.5)
 
@@ -688,6 +738,8 @@ class Kinematics:
             print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
         elif dxl_error != 0:
             print("%s" % self.packetHandler.getRxPacketError(dxl_error))
+        else:
+            print("Dynamixel#%d speed has been set" % self.DXL6_ID)
 
         time.sleep(CCW_INTERVAL)
 
@@ -697,23 +749,48 @@ class Kinematics:
             print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
         elif dxl_error != 0:
             print("%s" % self.packetHandler.getRxPacketError(dxl_error))
+        else:
+            print("Dynamixel#%d speed has been set" % self.DXL6_ID)
         
-        self.torque_disable(self.DXL6_ID)
         print("Card dispensed!")
+        dist_sensor.close()
         return 1
         
 # Main loop
 chain1 = Kinematics(28,28,7,4)    # joint variables
+mode = 1
 while (1):
-    mode = int(input("select what you want to do(1:move_to, 2: dispense card, 3: grip, 4: view variables): "))
+    #mode = int(input("select what you want to do(1:move_to, 2: dispense card, 3: grip, 4: view variables): "))
+    
     if (mode == 1):
-        target = [float(input("X: ")),\
-        float(input("Y: ")),\
-        float(input("Z: "))]
+        time.sleep(1)
+        #target = [float(input("X: ")),\
+        #float(input("Y: ")),\
+        #float(input("Z: "))]
+        target = [30,30,2]
+        print("%s" %target)
         chain1.move_to(target)
-        print("press any key to continue, or ESC to quit")
-        if getch() == chr(0x1b):
-            break
+        chain1.grip(0)
+        print("Auto loop on, going to next pos...")
+        #print("press any key to continue, or ESC to quit")
+        #if getch() == chr(0x1b):
+        #    break
+        mode = 5
+    if (mode == 5):
+        time.sleep(1)
+        #target = [float(input("X: ")),\
+        #float(input("Y: ")),\
+        #float(input("Z: "))]
+        target = [67,0,0]
+        print("%s" %target)
+        chain1.move_to(target)
+        chain1.dispense()
+        chain1.grip(1)
+        print("Auto loop on, going to next pos...")
+        #print("press any key to continue, or ESC to quit")
+        #if getch() == chr(0x1b):
+        #    break
+        mode = 1
     elif (mode == 2):
         chain1.dispense()
         print("press any key to continue, or ESC to quit")

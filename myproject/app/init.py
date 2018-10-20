@@ -7,8 +7,8 @@ import subprocess
 from pprint import pprint
 import serial
 import collections
-from Debug import ik, pakzan
-#from arm_pos import ik
+from Debug import pakzan
+from arm_pos import ik
 
 app = Flask(__name__)
 
