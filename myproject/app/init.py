@@ -8,6 +8,7 @@ from pprint import pprint
 import serial
 import collections
 <<<<<<< HEAD
+<<<<<<< HEAD
 from Debug import pakzan
 <<<<<<< HEAD
 print("before IK")
@@ -16,6 +17,11 @@ print("after IK")
 =======
 from arm_pos import ik
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
+=======
+from Debug import ik, pakzan
+#from arm_pos import ik
+
+>>>>>>> parent of d451ae9... after full run 1.0
 =======
 from Debug import ik, pakzan
 #from arm_pos import ik
@@ -52,12 +58,15 @@ ArduinoData = ""
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 chain1 = ik.chain1
 =======
 # Declare robot arm object
 chain1 = ik.Kinematics(28,28,7,4)
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
 
+=======
+>>>>>>> parent of d451ae9... after full run 1.0
 =======
 >>>>>>> parent of d451ae9... after full run 1.0
 @app.route('/kek', methods = ['POST'])
@@ -81,8 +90,11 @@ def CalculatePosition(distance, angle):
 def Distribute1Card(coordinate, card):
 	global test_i
 <<<<<<< HEAD
+<<<<<<< HEAD
 	chain1.dispense()
 <<<<<<< HEAD
+=======
+>>>>>>> parent of d451ae9... after full run 1.0
 =======
 >>>>>>> parent of d451ae9... after full run 1.0
 	CSx = CardStationPosition[0]
@@ -183,12 +195,17 @@ def OpenCardDeck(coordinate):
 	z = coordinate[2]
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	chain1.move_to(x, y, z)  #Move to deck's front
 	chain1.move_to(x+10, y, z)  #Push deck until fall
 =======
 	chain1.move_to([x, y, z])  #Move to deck's front
 	chain1.move_to([x+10, y, z])  #Push deck until fall
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
+=======
+	ik.chain1_move_to(x, y, z)  #Move to deck's front
+	ik.chain1_move_to(x+10, y, z)  #Push deck until fall
+>>>>>>> parent of d451ae9... after full run 1.0
 =======
 	ik.chain1_move_to(x, y, z)  #Move to deck's front
 	ik.chain1_move_to(x+10, y, z)  #Push deck until fall
@@ -364,10 +381,14 @@ def ActualGameProgress():
 if __name__ == '__main__':
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	app.run(host = "192.168.1.106", debug = True, use_reloader=False)
 =======
 	app.run(host = "192.168.1.103", debug = True, use_reloader=False)
 >>>>>>> 9193f838574d699465b1c568b9aa26472eae5554
+=======
+	app.run(host = "192.168.1.106", debug = True)
+>>>>>>> parent of d451ae9... after full run 1.0
 =======
 	app.run(host = "192.168.1.106", debug = True)
 >>>>>>> parent of d451ae9... after full run 1.0
