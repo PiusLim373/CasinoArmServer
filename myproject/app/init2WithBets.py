@@ -344,4 +344,4 @@ def ActualGameProgress():
 
 
 if __name__ == '__main__':
-	app.run(host = "192.168.0.102", debug = True, use_reloader=False)
+	app.run(host = "192.168.0.101", debug = True, use_reloader=False)
