@@ -1,0 +1,46 @@
+Stand: Stop drawing
+Hit: Draw
+Natural: A and 10 in starting hand
+Bust: over 21
+
+1. Betting phase. 
+- Players place bets.
+
+2. Initial Phase
+- 2 cards are dealt to each player and dealer, 1st face down to all except dealer, 2nd all face up except dealer
+
+2.1 Insurance
+- if dealer face up card is A, player can bet for dealer 2nd card to be 10 (side bet). if yes, player wins 2x side bet. Normal bets are still counted the usual way.
+
+2.2 Check for natural
+- if dealer first face up is 10/A, check face down card to see natural. Otherwise, wait until dealer turn before check. Players check their cards normally.
+- if player has a natural, dealer no, dealer pay 1.5x bet
+- if player no natural, dealer has a natural, collect bet
+- if both dealer and player has natural, that player bets are not used and returned
+2.3 Splitting
+- if the player(not dealer) 2 starting cards are the same, he can choose to split into 2 hands by placing same amount of bet equal to the starting bet on each hand. 
+- if 2 cards are A, only one card is dealt to each hand. No more cards can be drawn.
+- if 2 cards are A and one of the extra cards dealt is 10, pay = 1x bet of that hand
+2.4 Double Down
+- Before drawing, if sum of starting cards = 9,10,11, the player(not dealer) can double his bet. He only draw one card face down, not opened until after dealer turn when settling bets.
+
+3 Draw Phase
+- player draws until they want to stop. then the next player starts his draw.
+- if player bust while draw, collect bet.
+
+4. Settling bets
+- after finished card draws for each player, dealer flip open his face down card. 
+- if >=17, dealer must stand (stop draw). 
+- if <=16, must draw until >=17 then stand.
+- if dealer has A, which counting as 11 makes dealer's card >=17, must stand.
+- if player cards > dealer while not busting, pay = 1x bet
+- otherwise, collect bets
+
+BASIC STRATEGY
+Winning tactics in Blackjack require that the player play each hand in the optimum way, and such strategy always takes into account what the dealer's upcard is. When the dealer's upcard is a good one, a 7, 8, 9, 10-card, or ace for example, the player should not stop drawing until a total of 17 or more is reached. When the dealer's upcard is a poor one, 4, 5, or 6, the player should stop drawing as soon as he gets a total of 12 or higher. The strategy here is never to take a card if there is any chance of going bust. The desire with this poor holding is to let the dealer hit and hopefully go over 21. Finally, when the dealer's up card is a fair one, 2 or 3, the player should stop with a total of 13 or higher.
+
+With a soft hand, the general strategy is to keep hitting until a total of at least 18 is reached. Thus, with an ace and a six (7 or 17), the player would not stop at 17, but would hit.
+
+The basic strategy for doubling down is as follows: With a total of 11, the player should always double down. With a total of 10, he should double down unless the dealer shows a ten-card or an ace. With a total of 9, he should double down only if the dealer's card is fair or poor (2 through 6).
+
+For splitting, the player should always split a pair of aces or 8s; identical ten-cards should not be split, and neither should a pair of 5s, since two 5s are a total of 10, which can be used more effectively in doubling down. A pair of 4s should not be split either, as a total of 8 is a good number to draw to. Generally, 2s, 3s, or 7s can be split unless the dealer has an 8, 9, ten-card, or ace. Finally, 6s should not be split unless the dealer's card is poor (2 through 6).
