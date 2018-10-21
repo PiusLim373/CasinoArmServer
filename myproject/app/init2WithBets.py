@@ -7,15 +7,18 @@ import subprocess
 from pprint import pprint
 import serial
 import collections
-from Debug import pakzan
-print("before IK")
-import ik
-print("after IK")
+from Debug import pakzan, ik
+#import ik
+
 app = Flask(__name__)
 
 Player1Position = [30, 20, 5]
 Player2Position = [15, 15, 3]
 Player3Position = [40,10,6]
+
+Player1Bet = 0
+Player2Bet = 0
+Player3Bet = 0
 
 Player1Card = []
 Player2Card = []
@@ -38,17 +41,17 @@ ResetBtn = ""
 test_i = 0
 decision = ""
 ActivateArduino = "NO"
-ArduinoData = ""
+ArduinoDecision = ""
+ArduinoBet = 0
 
-chain1 = ik.Kinematics(28,28,7,4)
+chain1 = ik.chain1
+#chain1 = ik.Kinematics(28,28,7,4)
 
 @app.route('/kek', methods = ['POST'])
 def kekk():
 	global ActivateArduino
-	ActivateArduino = "YES"
-	while True:
-		print(ArduinoData)
-		time.sleep(1)
+	ActivateArduino = request.form['ActivateArduino']
+	print(ActivateArduino)
 	return 'uhoh'
 
 @app.route('/initiate', methods=['POST'])
@@ -73,34 +76,42 @@ def Distribute1Card(coordinate, card):
 
 @app.route('/ArduinoDataHub', methods = ['POST', 'GET'])
 def ArduinoDataHub():
-	global ActivateArduino, ArduinoData
+	global ActivateArduino, ArduinoDecision, ArduinoBet
 	if request.method == 'GET':
 		return ActivateArduino
 	else:
 		data = request.get_json()
-		ArduinoData = data['input']
+		ArduinoBet = data['bet']
+		ArduinoDecision = data['decision']
+		print(ArduinoBet)
+		print(ArduinoDecision)
 		return "Input Captured"
 		
+def PromptforBet(bet):
+	global Player1Bet, Player2Bet, Player3Bet, ArduinoBet, ActivateArduino
+	ActivateArduino = "YES"
+	return 0
+
 def PromptforCard(coordinate, card):
-		global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, ActivateArduino, ArduinoData
+		global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, ActivateArduino, ArduinoDecision
 		ActivateArduino = "YES"
-		while ArduinoData != "NO":
-			if ArduinoData == "YES":
+		while ArduinoDecision != "NO":
+			if ArduinoDecision == "YES":
 				if len(card) < 4:
 					Jumbotron_text2 = '<font color="green">You indicated that you want to add 1 more card, just a sec ;)</font>'
-					ArduinoData = ""
+					ArduinoDecision = ""
 					ActivateArduino = "NO"
 					Distribute1Card(coordinate, card)
 					Jumbotron_text2 = "Do you wish to add more cards?"
 					ActivateArduino = "YES"	
 				elif len(card) == 4:
 					Jumbotron_text2 = '<font color="green">You indicated that you want to add 1 more card, just a sec ;)</font><br><font color="red">This is the fifth and will the last card.</font>'
-					ArduinoData = ""
+					ArduinoDecision = ""
 					ActivateArduino = "NO"
 					Distribute1Card(coordinate, card)
 					return "0"
 		Jumbotron_text2 = '<font color="red">You indicated that you don''t want anymore card, good luck :)</font>'
-		ArduinoData = ""
+		ArduinoDecision = ""
 		ActivateArduino = "NO"
 		return "0"
 
@@ -178,7 +189,7 @@ def EndGame(value1, value2, value3, value0):
 
 @app.route('/')
 def index():
-	global test_i, Player1Position, Player2Position, Player3Position, Player1Card, Player2Card, Player3Card, Player1CardValue, Player2CardValue, Player3CardValue, ArmCard, ArmCardValue, ActivateArduino, ArduinoData
+	global test_i, Player1Position, Player2Position, Player3Position, Player1Card, Player2Card, Player3Card, Player1CardValue, Player2CardValue, Player3CardValue, ArmCard, ArmCardValue, ActivateArduino, ArduinoDecision
 	Player1Position = []
 	Player2Position = []
 	Player3Position = []
@@ -195,7 +206,7 @@ def index():
 	ArmCardValue = 0
 	test_i = 0
 	ActivateArduino = "NO"
-	ArduinoData = ""
+	ArduinoDecision = ""
 	return render_template('index.html')
 
 @app.route('/StartGame', methods = ['POST'])
@@ -244,8 +255,11 @@ def ActualGameProgress():
 	global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, ResetBtn
 	#Distribute 1 card to each player, repeat 2 times
 	Jumbotron_title = "Phase 1: Bet Placing"
-    Jumbotron_text1 = '<font color="red">Player 1</font> placing bets.'
-    
+	Jumbotron_text1 = '<font color="red">Player 1</font> placing bets.'
+	Jumbotron_text2 = "Please response with the device provided :)"
+	PromptforBet(Player1Bet)
+	Jumbotron_text1 = '<font color="red">Player 2</font> placing bets.'
+	Jumbotron_text2 = "Please response with the device provided :)"
 
 
 
@@ -330,4 +344,4 @@ def ActualGameProgress():
 
 
 if __name__ == '__main__':
-	app.run(host = "192.168.1.104", debug = True, use_reloader=False)
+	app.run(host = "192.168.0.102", debug = True, use_reloader=False)

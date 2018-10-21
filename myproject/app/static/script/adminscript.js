@@ -24,13 +24,17 @@ function SendNO(){
     });
 }
 
-function kek(){
+function ActivateArduino(x){
+    var arr = ["BET", "DECISION", ""];
+    console.log(arr[x]);
     $.ajax({
         method:'POST',
         url:"/kek",
-        
+        data:{
+            'ActivateArduino':arr[x]
+        },
         success: function(response){
-            
+            console.log(response);
         }
     });
 }
@@ -42,7 +46,7 @@ function kek(){
                 
                 var admin = new XMLHttpRequest();
                 
-                admin.open('GET', 'http://192.168.1.103:5000/adminfeeds', true);
+                admin.open('GET', 'http://192.168.0.102:5000/adminfeeds', true);
                 
                 admin.onload = function() {
                     var data = JSON.parse(this.responseText);

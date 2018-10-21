@@ -42,7 +42,7 @@ function Initiate(){
                 
                 var RealtimeFeedback = new XMLHttpRequest();
                 
-                RealtimeFeedback.open('GET', 'http://192.168.1.103:5000/feedback', true);
+                RealtimeFeedback.open('GET', 'http://192.168.0.102:5000/feedback', true);
                 
                 RealtimeFeedback.onload = function() {
                     var data = JSON.parse(this.responseText);
