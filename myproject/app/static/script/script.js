@@ -15,17 +15,20 @@ function Initialize_AGV(){
 }
 
 function StartGame(){
-    $("#main").fadeOut();
-    $("#loader").fadeIn();
+    //$("#main").fadeOut();
+    //$("#loader").fadeIn();
     $.ajax({
         method:'POST',
-        url:"/StartGame",
+        url:"/FaceRecog",
         success: function(response){
             console.log(response);
             location.href=response;
-        }
+        }   
     });
+
+
 }
+
 function initiate(){
     console.log("ahem");
     $.ajax({
@@ -43,7 +46,7 @@ function initiate(){
                 
                 var RealtimeFeedback = new XMLHttpRequest();
                 
-                RealtimeFeedback.open('GET', 'http://192.168.163.193:5000/feedback', true);
+                RealtimeFeedback.open('GET', 'http://localhost:5000/feedback', true);
                 
                 RealtimeFeedback.onload = function() {
                     var data = JSON.parse(this.responseText);

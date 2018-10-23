@@ -55,7 +55,7 @@ def IsWatching(frame):
     return len(detected) >= 1
  
 
-def UpdateStareList(frame, rect, face_encoding, name, starer_idxes, index):
+def UpdateStareList(frame, rect, face_encoding, name, starer_idxes):
     (top, right, bottom, left) = rect
     # if is registering player and the perosn is watching camera
     if (not start_game) and IsWatching(frame[top:bottom, left:right]):
@@ -65,7 +65,8 @@ def UpdateStareList(frame, rect, face_encoding, name, starer_idxes, index):
             starer_encodings, face_encoding)
         if len(face_distances) != 0 and min(face_distances) < 0.5:
             index = np.argmin(face_distances)
-            starer_idxes.remove(index)
+            if index < len(starer_idxes):
+                starer_idxes.remove(index)
 
             # add person to player list if:
             # the person not in player list AND stared camera for more than 1 seconds
@@ -103,13 +104,11 @@ def DispResult(frame):
     # starer_idxes is used to check which starer index is checked
     # the idxes will be removed after checked starer_encodings
     starer_idxes = list(range(len(starer_encodings)))
-    index = 0;
     for (top, right, bottom, left), name, face_encoding in zip(face_locations, face_names, face_encodings):
         
         starer_idxes = UpdateStareList(frame, (top, right, bottom, left),
-                        face_encoding, name, starer_idxes, index)
-        index = index+1
-        
+                        face_encoding, name, starer_idxes)
+
         # Draw a box around the face
         cv2.rectangle(frame, (left, top), (right, bottom), (100, 100, 100), 2)
 
@@ -207,7 +206,7 @@ def ReadWriteFace():
         prev_frame_time = time.time()
 
     # Display basic information and registered player
-    DispInfo(frame)
+    # DispInfo(frame)
     # Display name, distance and angle
     DispResult(frame)
 
@@ -278,9 +277,12 @@ def main(qFrame, tmpStatus, qPlayer):
 
             #store player info into a queue to be retrive from flask
             #store twice to make sure main thread got the value
-            qPlayer.put(player_info)
-            qPlayer.put(player_info)
-            print(player_info)
+            player_info_str = {}
+            for key in player_info:
+                player_info_str[key] = str(player_info[key][0]) + ' ' + str(player_info[key][1])
+            qPlayer.put(player_info_str)
+            qPlayer.put(player_info_str)
+            print(player_info_str)
 
             # Release handle to the webcam
             video_capture.release()

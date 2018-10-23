@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 import requests
 import time
 import json
@@ -9,12 +9,14 @@ import serial
 import collections
 from Debug import pakzan, ik
 #import ik
+from multiprocessing import Process, Queue
+
 
 app = Flask(__name__)
 
-Player1Position = [30, 20, 5]
-Player2Position = [15, 15, 3]
-Player3Position = [40,10,6]
+Player1Position = []
+Player2Position = []
+Player3Position = []
 
 Player1Money = 100
 Player2Money = 100
@@ -24,6 +26,7 @@ Player1Bet = 0
 Player2Bet = 0
 Player3Bet = 0
 
+#spade,love,diamond,club
 Player1Card = []
 Player2Card = []
 Player3Card = []
@@ -43,7 +46,7 @@ Jumbotron_text2 = ""
 ResetBtn = ""
 BetPhase = ""
 CurrPlayer = 0
-
+CurrCard = []
 ExistingPlayer = [1,1,1]
 
 test_i = 0
@@ -55,10 +58,79 @@ ArduinoBet = 0
 chain1 = ik.chain1
 #chain1 = ik.Kinematics(28,28,7,4)
 
+#############################################PAKZAN CODE STARTS HERE
+qFrame = Queue()
+qStatus = Queue()
+qPlayer = Queue()
+
+@app.route('/FaceRecog')
+def FaceRecog():
+	return render_template("FaceRecog.html")
+
+@app.route('/video_feed')
+def video_feed():
+	import FaceRecog
+	# Run FaceRecog multiprocessor
+	process = Process(target = FaceRecog.main, args = (qFrame, qStatus, qPlayer))
+	process.start()
+
+	def gen():
+		while True:
+			yield qFrame.get()
+	
+	# Get frame or player info from FaceRecog module
+	# getFrameOrInfo function will keep yielding jpeg frame until all player information is found
+	return Response(gen(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/audio_feed')
+def audio_feed():
+	# Server Send Event for sending current status to frontend
+	# status will then be converted to speech afterwards
+	def gen():
+		while True:
+			yield 'data: {}\n\n'.format(qStatus.get())
+	return Response(gen(), mimetype='text/event-stream')
+
+@app.route('/player_info')
+def player_info():
+    # FaceRecog.getFrameOrInfo() will return values after all players' faces found for 2 seconds
+    # player_info = {'Player 1': [location(cm), angle(degree)], 'Player 2': ...}
+    # format: DICTIONARY = {STRING: [float, float]}
+    def gen():
+        while True:
+            yield 'data: {}\n\n'.format(qPlayer.get())
+    return Response(gen(), mimetype='text/event-stream')
+
+#############################################PAKZAN CODE ENDS HERE
+
+
+@app.route('/ReceivePlayerInfo', methods = ['POST'])
+def ReceivePlayerInfo():
+	global Player1Position, Player2Position, Player3Position, ResetBtn
+	ResetBtn = ""
+	try:
+		Player1Position = request.form['Player 1'].split()
+		Player1Position = [float(i) for i in Player1Position]
+		Player1Position.append(0)
+		Player2Position = request.form['Player 2'].split()
+		Player2Position = [float(i) for i in Player2Position]
+		Player2Position.append(0)
+		Player3Position = request.form['Player 3'].split()
+		Player3Position = [float(i) for i in Player3Position]
+		Player3Position.append(0)
+
+	except Exception as e:
+		pass
+	print(request.form)
+	print(Player1Position)
+	print(Player2Position)
+	print(Player3Position)
+	return "Player position registered"
+
+
 @app.route('/kek', methods = ['POST'])
 def kekk():
-	subprocess.check_output('python FaceRecog\main.py', shell = True)
-	time.sleep(3)
+	Distribute1Card([1,2,3], Player1Card)
 	return 'uhoh'
 
 @app.route('/initiate', methods=['POST'])
@@ -66,18 +138,24 @@ def InitiateGame():
 	ActualGameProgress()
 	return "0"
 
-def CalculatePosition(distance, angle):
-	array = [distance/2, angle/2, 0]
-	return array
+@app.route('/card_info', methods = ['POST'])
+def info():
+	global rank, suit
+	rank = request.form['rank']
+	suit = request.form['suit']
+	print([rank, suit])
+	return ""
+
 
 def Distribute1Card(coordinate, card):
 	global test_i
 	chain1.dispense()
-	card.append(pakzan.readValue(test_i))
+	card.append([rank, suit])
 	chain1.move_to(CardStationPosition)
 	chain1.grip(1)
 	chain1.move_to(coordinate)
 	chain1.grip(0)
+	print(Player1Card)
 	test_i += 1
 	return "0"
 
@@ -105,7 +183,7 @@ def PromptforBet(x, money):
 				Player1Bet = round(int(ArduinoBet)/100 * money)
 				bet = Player1Bet
 				if bet == 0:
-					print("Player 1 opted out.")
+					# print("Player 1 opted out.")
 					ExistingPlayer[0] = 0
 				else:
 					ExistingPlayer[0] = 1
@@ -113,7 +191,7 @@ def PromptforBet(x, money):
 				Player2Bet = round(int(ArduinoBet)/100 * money)
 				bet = Player2Bet
 				if bet == 0:
-					print("Player 2 opted out.")
+					#print("Player 2 opted out.")
 					ExistingPlayer[1] = 0
 				else:
 					ExistingPlayer[1] = 1
@@ -121,7 +199,7 @@ def PromptforBet(x, money):
 				Player3Bet = round(int(ArduinoBet)/100 * money)
 				bet = Player3Bet
 				if bet == 0:
-					print("Player 3 opted out.")
+					#print("Player 3 opted out.")
 					ExistingPlayer[2] = 0
 				else:
 					ExistingPlayer[2] = 1
@@ -259,46 +337,27 @@ def EndGame(value1, value2, value3, value0):
 @app.route('/')
 def index():
 	global test_i, Player1Position, Player2Position, Player3Position, Player1Card, Player2Card, Player3Card, Player1CardValue, Player2CardValue, Player3CardValue, ArmCard, ArmCardValue, ActivateArduino, ArduinoDecision
-	Player1Position = []
-	Player2Position = []
-	Player3Position = []
-
-	Player1Card = []
-	Player2Card = []
-	Player3Card = []
-
-	Player1CardValue = 0
-	Player2CardValue = 0
-	Player3CardValue = 0
-
-	ArmCard = []
-	ArmCardValue = 0
-	test_i = 0
-	ActivateArduino = "NO"
-	ArduinoDecision = ""
-
-	ExistingPlayer = [1,1,1]
+	'''Player1Position = []
+				Player2Position = []
+				Player3Position = []
+			
+				Player1Card = []
+				Player2Card = []
+				Player3Card = []
+			
+				Player1CardValue = 0
+				Player2CardValue = 0
+				Player3CardValue = 0
+			
+				ArmCard = []
+				ArmCardValue = 0
+				test_i = 0
+				ActivateArduino = "NO"
+				ArduinoDecision = ""
+			
+				ExistingPlayer = [1,1,1]'''
 	return render_template('index.html')
 
-@app.route('/StartGame', methods = ['POST'])
-def StartGame():
-	#Loads FaceRecog and get data output
-	subprocess.call('start cmd.exe @cmd/k "python "D:\Documents- HDD\GitHub\FaceRecog\main.py""', shell = True)
-	time.sleep(10)
-	#windows.open("localhost:5000.html")
-	#FaceRecog = subprocess.check_output('python Debug\debug.py 3 7', shell = True)          #Just a placeholder for debug
-	#FaceRecog_json = json.loads(FaceRecog)
-	#global Player1Position, Player2Position, Player3Position, ResetBtn
-	#ResetBtn = ""
-	#Player1Position = CalculatePosition(float(FaceRecog_json['players'][0]['position']['distance']), float(FaceRecog_json['players'][0]['position']['angle']))
-	#Player2Position = CalculatePosition(float(FaceRecog_json['players'][1]['position']['distance']), float(FaceRecog_json['players'][1]['position']['angle']))
-	#Player3Position = CalculatePosition(float(FaceRecog_json['players'][2]['position']['distance']), float(FaceRecog_json['players'][2]['position']['angle']))
-	#print(Player1Position)
-	#print(Player2Position)
-	#print(Player3Position)
-
-	#return "GameStarted.html"
-	return "doneloading"
 
 @app.route('/GameStarted.html')
 def GameStarted():
@@ -311,7 +370,7 @@ def adminpage():
 
 @app.route('/adminfeeds', methods = ['GET'])
 def adminquery():
-	return jsonify(CardStationPosition = [CardStationPosition], Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ArmPosition = [ArmPosition], ArmCard = [ArmCard], ArmCardValue = ArmCardValue, Player1Position = [Player1Position], Player1Card = [Player1Card], Player1CardValue = Player1CardValue, Player1Money = Player1Money, Player1Bet = Player1Bet, Player2Position = [Player2Position], Player2Card = [Player2Card], Player2CardValue = Player2CardValue, Player2Money = Player2Money, Player2Bet = Player2Bet, Player3Position = [Player3Position], Player3Card = [Player3Card], Player3CardValue = Player3CardValue, Player3Money = Player3Money, Player3Bet = Player3Bet)
+	return jsonify(CardStationPosition = [CardStationPosition], Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ArmPosition = [ArmPosition], ArmCard = [ArmCard], ArmCardValue = ArmCardValue, Player1Position = [Player1Position], Player1Card = [str(Player1Card)], Player1CardValue = Player1CardValue, Player1Money = Player1Money, Player1Bet = Player1Bet, Player2Position = [Player2Position], Player2Card = [Player2Card], Player2CardValue = Player2CardValue, Player2Money = Player2Money, Player2Bet = Player2Bet, Player3Position = [Player3Position], Player3Card = [Player3Card], Player3CardValue = Player3CardValue, Player3Money = Player3Money, Player3Bet = Player3Bet)
 
 @app.route('/feedback', methods = ['GET'])
 def RealtimeFeedback():
@@ -432,4 +491,4 @@ def ActualGameProgress():
 
 
 if __name__ == '__main__':
-	app.run(host = "192.168.163.193", debug = True)
+	app.run(host = "0.0.0.0", debug = True)

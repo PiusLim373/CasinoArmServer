@@ -39,13 +39,15 @@ function ActivateArduino(x){
     });
 }
 function Test_Distribute1Card(){
+    
     $.ajax({
         method:'POST',
         url:"/kek",
         data:{
         },
         success: function(response){
-            console.log(response);
+            console.log(response)
+
         }
     });
 }
@@ -58,7 +60,7 @@ function Test_Distribute1Card(){
                 
                 var admin = new XMLHttpRequest();
                 
-                admin.open('GET', 'http://192.168.163.193:5000/adminfeeds', true);
+                admin.open('GET', 'http://localhost:5000/adminfeeds', true);
                 
                 admin.onload = function() {
                     var data = JSON.parse(this.responseText);
