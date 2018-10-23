@@ -1,6 +1,6 @@
 import time
 class chain1:
-	def chain1_move_to(x,y,z):
+	def move_to(coordinate):
 		time.sleep(1)
 		return "Arm Moved"
 	def dispense():

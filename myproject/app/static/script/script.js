@@ -26,7 +26,8 @@ function StartGame(){
         }
     });
 }
-function Initiate(){
+function initiate(){
+    console.log("ahem");
     $.ajax({
         method:'POST',
         url:"/initiate",
@@ -42,7 +43,7 @@ function Initiate(){
                 
                 var RealtimeFeedback = new XMLHttpRequest();
                 
-                RealtimeFeedback.open('GET', 'http://192.168.0.102:5000/feedback', true);
+                RealtimeFeedback.open('GET', 'http://192.168.163.193:5000/feedback', true);
                 
                 RealtimeFeedback.onload = function() {
                     var data = JSON.parse(this.responseText);
@@ -55,7 +56,31 @@ function Initiate(){
                     if(data.ResetBtn == ""){
                         $("#ResetBtn").hide();
                     }
-
+                    if(data.BetPhase == "show"){
+                        $("#BetDiv").fadeIn("slow");
+                    } 
+                    if(data.BetPhase == ""){
+                        $("#BetDiv").fadeOut("slow");
+                    } 
+                    var ArduinoBetPerc = data.ArduinoBet + "%"
+                    if (data.ArduinoBet == 100){
+                        $("#betbar").css("width", "100%");
+                        $("#betbar").html("ALL IN!");
+                        $("#betbar").addClass("bg-success");
+                    }
+                    else {
+                        $("#betbar").removeClass("bg-success");
+                        $("#betbar").css("width",ArduinoBetPerc);
+                        if (data.CurrPlayer == 1){
+                            $("#betbar").html("S$" + data.Player1Bet);
+                        }
+                        else if(data.CurrPlayer == 2){
+                            $("#betbar").html("S$" + data.Player2Bet);
+                        }
+                        else if(data.CurrPlayer == 3){
+                            $("#betbar").html("S$" + data.Player3Bet);
+                        }
+                    }
                 };
 
                 RealtimeFeedback.send();

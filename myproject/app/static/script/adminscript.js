@@ -38,6 +38,18 @@ function ActivateArduino(x){
         }
     });
 }
+function Test_Distribute1Card(){
+    $.ajax({
+        method:'POST',
+        url:"/kek",
+        data:{
+        },
+        success: function(response){
+            console.log(response);
+        }
+    });
+}
+
 
 
 
@@ -46,7 +58,7 @@ function ActivateArduino(x){
                 
                 var admin = new XMLHttpRequest();
                 
-                admin.open('GET', 'http://192.168.0.102:5000/adminfeeds', true);
+                admin.open('GET', 'http://192.168.163.193:5000/adminfeeds', true);
                 
                 admin.onload = function() {
                     var data = JSON.parse(this.responseText);
@@ -60,12 +72,18 @@ function ActivateArduino(x){
                     $("#Player1Position").html(data.Player1Position);
                     $("#Player1Card").html(data.Player1Card);
                     $("#Player1CardValue").html(data.Player1CardValue);
+                    $("#Player1Money").html(data.Player1Money);
+                    $("#Player1Bet").html(data.Player1Bet);
                     $("#Player2Position").html(data.Player2Position);
                     $("#Player2Card").html(data.Player2Card);
                     $("#Player2CardValue").html(data.Player2CardValue);
+                    $("#Player2Money").html(data.Player2Money);
+                    $("#Player2Bet").html(data.Player2Bet);
                     $("#Player3Position").html(data.Player3Position);
                     $("#Player3Card").html(data.Player3Card);
                     $("#Player3CardValue").html(data.Player3CardValue);
+                    $("#Player3Money").html(data.Player3Money);
+                    $("#Player3Bet").html(data.Player3Bet);
                     
 
                 };

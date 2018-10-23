@@ -25,6 +25,7 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   pinMode(yesled, OUTPUT);
   pinMode(noled,OUTPUT);
+  pinMode(A0,INPUT);
   digitalWrite(yesled, LOW);
   digitalWrite(noled,LOW);
   digitalWrite(ledPin,HIGH);
@@ -65,9 +66,7 @@ int SendBetJSON(int input){
   JSONencoder["decision"] = "";
   char JSONmessageBuffer[300];
   JSONencoder.prettyPrintTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-  Serial.println(JSONmessageBuffer);
   int httpCode = http.POST(JSONmessageBuffer);
-  Serial.println(httpCode);
   http.end();
   return 0;
 }

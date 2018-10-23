@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="static/css/font-awesome.min.css">
     <script type="text/javascript">
     	$(document).ready(function(){
-    		Initiate();
+    		initiate();
     	});
     </script>
   </head>
@@ -27,23 +27,21 @@
   <div id="main" class="container">
     <div class=row>
 
-      <div class="col-md-12 center">
+      <div class="col-md-12 ">
+        <br><br><br>
         <div class="jumbotron mid" id="Jumbotron_title">
           <h1 class = display-3></h1>
           <hr class="my-4">
           <h3 id="Jumbotron_text1"></h3>
 
           <h3 id="Jumbotron_text2"></h3>
-          
-          <!--div class="card text-white bg-primary mb-3">
-  			<div class="card-body">
-    			<h4 class="card-title", id="Card_title">Primary card title</h4>
-    			<p class="card-text" id="Card_text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
-    			
-  			</div>
-		  </div-->
-		  <button id="ResetBtn" class="mid btn btn-primary ResetBtn" onclick="location.href='/'">Restart Game</button>
+          <br>
+          <div id="BetDiv" class="progress progress-striped active hidden">
+            <div id="betbar" class="progress-bar" style="width: "></div>
+          </div>
+		      
         </div>
+        <button id="ResetBtn" class="mid btn btn-primary ResetBtn hidden" onclick="location.href='/'">Restart Game</button>
         
       </div>
       <!--div class="col-md-12">

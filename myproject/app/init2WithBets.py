@@ -16,6 +16,10 @@ Player1Position = [30, 20, 5]
 Player2Position = [15, 15, 3]
 Player3Position = [40,10,6]
 
+Player1Money = 100
+Player2Money = 100
+Player3Money = 100
+
 Player1Bet = 0
 Player2Bet = 0
 Player3Bet = 0
@@ -37,10 +41,12 @@ Jumbotron_title = ""
 Jumbotron_text1 = ""
 Jumbotron_text2 = ""
 ResetBtn = ""
+BetPhase = ""
+CurrPlayer = 0
 
 test_i = 0
 decision = ""
-ActivateArduino = "NO"
+ActivateArduino = ""
 ArduinoDecision = ""
 ArduinoBet = 0
 
@@ -49,9 +55,7 @@ chain1 = ik.chain1
 
 @app.route('/kek', methods = ['POST'])
 def kekk():
-	global ActivateArduino
-	ActivateArduino = request.form['ActivateArduino']
-	print(ActivateArduino)
+	Distribute1Card(Player1Position, Player1Card)
 	return 'uhoh'
 
 @app.route('/initiate', methods=['POST'])
@@ -81,16 +85,57 @@ def ArduinoDataHub():
 		return ActivateArduino
 	else:
 		data = request.get_json()
-		ArduinoBet = data['bet']
+		ArduinoBet = data['bet'] 
 		ArduinoDecision = data['decision']
 		print(ArduinoBet)
 		print(ArduinoDecision)
 		return "Input Captured"
 		
-def PromptforBet(bet):
-	global Player1Bet, Player2Bet, Player3Bet, ArduinoBet, ActivateArduino
-	ActivateArduino = "YES"
-	return 0
+def PromptforBet(x, money):
+	global ArduinoBet, ActivateArduino, ArduinoDecision, Jumbotron_text1, Jumbotron_text2, Player1Bet, Player2Bet, Player3Bet, Player1Money, Player2Money, Player3Money
+	ActivateArduino = "BET"
+	while ArduinoDecision != "PLACEBET":
+		Jumbotron_text1 = '<font color="red">Player ' + str(x) +'</font> is placing bets.'
+		Jumbotron_text2 = "Please response with the device provided :)<br>You have S$" + str(money) + "."
+		if ArduinoBet != "":
+			if x == 1:
+				Player1Bet = round(int(ArduinoBet)/100 * money)
+				bet = Player1Bet
+			elif x == 2:
+				Player2Bet = round(int(ArduinoBet)/100 * money)
+				bet = Player2Bet
+			elif x == 3:
+				Player3Bet = round(int(ArduinoBet)/100 * money)
+				bet = Player3Bet
+	ArduinoDecision = ""
+	ActivateArduino = "DECISION"
+	Jumbotron_text2 = '<font color="red">You are about to place S$' + str(bet) +". Are you sure?</font>"
+	while ArduinoDecision == "":
+		if ArduinoDecision == "NO":
+			ActivateArduino = ""
+			ArduinoDecision = ""
+			PromptforBet(x, money)
+		elif ArduinoDecision == "YES":
+			if x == 1:
+					Player1Money -= Player1Bet
+					money = Player1Money
+			elif x == 2:
+					Player2Money -= Player2Bet
+					money = Player2Money
+			elif x == 3:
+					Player3Money -= Player3Bet
+					money = Player3Money
+			Jumbotron_text2 = '<font color="green">Bet placed, you have S$' + str(money) + " remaining. Good Luck!</font>"
+			ActivateArduino = ""
+			ArduinoBet = 0
+			ArduinoDecision = ""
+			time.sleep(3)
+			
+			return 0
+	
+
+
+	
 
 def PromptforCard(coordinate, card):
 		global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, ActivateArduino, ArduinoDecision
@@ -159,11 +204,9 @@ def ChecktoAddCard(coordinate, card, value):
 	return value
 
 def OpenCardDeck(coordinate):
-	x = coordinate[0]
-	y = coordinate[1]
-	z = coordinate[2]
-	chain1.move_to(x, y, z)  #Move to deck's front
-	chain1.move_to(x+10, y, z)  #Push deck until fall
+	chain1.move_to(coordinate)  #Move to deck's front
+	coordinate_push = [coordinate[0] +=10, coordinate[1], coordinate[2]]
+	chain1.move_to(coordinate_push)  #Push deck until fall
 	return "0"
 
 
@@ -218,9 +261,9 @@ def StartGame():
 	FaceRecog_json = json.loads(FaceRecog)
 	global Player1Position, Player2Position, Player3Position, ResetBtn
 	ResetBtn = ""
-	#Player1Position = CalculatePosition(float(FaceRecog_json['players'][0]['position']['distance']), float(FaceRecog_json['players'][0]['position']['angle']))
-	#Player2Position = CalculatePosition(float(FaceRecog_json['players'][1]['position']['distance']), float(FaceRecog_json['players'][1]['position']['angle']))
-	#Player3Position = CalculatePosition(float(FaceRecog_json['players'][2]['position']['distance']), float(FaceRecog_json['players'][2]['position']['angle']))
+	Player1Position = CalculatePosition(float(FaceRecog_json['players'][0]['position']['distance']), float(FaceRecog_json['players'][0]['position']['angle']))
+	Player2Position = CalculatePosition(float(FaceRecog_json['players'][1]['position']['distance']), float(FaceRecog_json['players'][1]['position']['angle']))
+	Player3Position = CalculatePosition(float(FaceRecog_json['players'][2]['position']['distance']), float(FaceRecog_json['players'][2]['position']['angle']))
 	print(Player1Position)
 	print(Player2Position)
 	print(Player3Position)
@@ -238,11 +281,11 @@ def adminpage():
 
 @app.route('/adminfeeds', methods = ['GET'])
 def adminquery():
-	return jsonify(CardStationPosition = [CardStationPosition], Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ArmPosition = [ArmPosition], ArmCard = [ArmCard], ArmCardValue = ArmCardValue, Player1Position = [Player1Position], Player1Card = [Player1Card], Player1CardValue = Player1CardValue, Player2Position = [Player2Position], Player2Card = [Player2Card], Player2CardValue = Player2CardValue, Player3Position = [Player3Position], Player3Card = [Player3Card], Player3CardValue = Player3CardValue)
+	return jsonify(CardStationPosition = [CardStationPosition], Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ArmPosition = [ArmPosition], ArmCard = [ArmCard], ArmCardValue = ArmCardValue, Player1Position = [Player1Position], Player1Card = [Player1Card], Player1CardValue = Player1CardValue, Player1Money = Player1Money, Player1Bet = Player1Bet, Player2Position = [Player2Position], Player2Card = [Player2Card], Player2CardValue = Player2CardValue, Player2Money = Player2Money, Player2Bet = Player2Bet, Player3Position = [Player3Position], Player3Card = [Player3Card], Player3CardValue = Player3CardValue, Player3Money = Player3Money, Player3Bet = Player3Bet)
 
 @app.route('/feedback', methods = ['GET'])
 def RealtimeFeedback():
-	return jsonify(Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ResetBtn = ResetBtn)
+	return jsonify(Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ResetBtn = ResetBtn, Player1Bet = Player1Bet,Player2Bet = Player2Bet, Player3Bet = Player3Bet, CurrPlayer = CurrPlayer, ArduinoBet = ArduinoBet, BetPhase = BetPhase, Player1Money = Player1Money)
 
 @app.route('/ArduinoStimulation', methods = ['POST'])
 def ArduinoStimulation():
@@ -252,15 +295,21 @@ def ArduinoStimulation():
 	return ':)'
 
 def ActualGameProgress():
-	global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, ResetBtn
+	global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, ResetBtn, BetPhase, CurrPlayer
 	#Distribute 1 card to each player, repeat 2 times
+	BetPhase = "show"
 	Jumbotron_title = "Phase 1: Bet Placing"
-	Jumbotron_text1 = '<font color="red">Player 1</font> placing bets.'
-	Jumbotron_text2 = "Please response with the device provided :)"
-	PromptforBet(Player1Bet)
-	Jumbotron_text1 = '<font color="red">Player 2</font> placing bets.'
-	Jumbotron_text2 = "Please response with the device provided :)"
-
+	CurrPlayer = 1
+	PromptforBet(1, Player1Money)
+	CurrPlayer = 2
+	PromptforBet(2, Player2Money)
+	CurrPlayer = 3
+	PromptforBet(3, Player3Money)
+	CurrPlayer = 0
+	BetPhase = ""
+	print(Player1Bet)
+	print(Player2Bet)
+	print(Player3Bet)
 
 
 	Jumbotron_text1 = 'Distributing cards to all players. <font color = "red">Please be patient :)</font>'
@@ -291,15 +340,15 @@ def ActualGameProgress():
 	Jumbotron_title = "Phase 2"
 	Jumbotron_text1 = 'Adding cards for <font color="red">Player 1</font>'
 	Jumbotron_text2 = "Please indicate your choice with the device provided."
-	PromptforCard(Player1Position, Player1Card)
+	PromptforCardWithoutArduino(Player1Position, Player1Card)
 	time.sleep(3)
 	Jumbotron_text1 = 'Adding Cards for <font color="red">Player 2</font>'
 	Jumbotron_text2 = "Please indicate your choice with the device provided."
-	PromptforCard(Player2Position, Player2Card)
+	PromptforCardWithoutArduino(Player2Position, Player2Card)
 	time.sleep(3)
 	Jumbotron_text1 = 'Adding Cards for <font color="red">Player 3</font>'
 	Jumbotron_text2 = "Please indicate your choice with the device provided."
-	PromptforCard(Player3Position, Player3Card)
+	PromptforCardWithoutArduino(Player3Position, Player3Card)
 	time.sleep(3)
 	print(Player1Card)
 	print(Player2Card)
@@ -344,4 +393,4 @@ def ActualGameProgress():
 
 
 if __name__ == '__main__':
-	app.run(host = "192.168.0.101", debug = True, use_reloader=False)
+	app.run(host = "192.168.163.193", debug = True)
