@@ -10,9 +10,13 @@ import collections
 from Debug import pakzan, ik
 #import ik
 from multiprocessing import Process, Queue
-
+import logging
 
 app = Flask(__name__)
+
+log = logging.getLogger('werkzeug')
+log.disabled = True
+app.logger.disabled = True
 
 Player1Position = []
 Player2Position = []
@@ -47,13 +51,15 @@ ResetBtn = ""
 BetPhase = ""
 CurrPlayer = 0
 CurrCard = []
-ExistingPlayer = [1,1,1]
+ExistingPlayer = [0,0,0]
 
 test_i = 0
 decision = ""
 ActivateArduino = ""
 ArduinoDecision = ""
 ArduinoBet = 0
+rank = ""
+suit = ""
 
 chain1 = ik.chain1
 #chain1 = ik.Kinematics(28,28,7,4)
@@ -87,51 +93,59 @@ def audio_feed():
 	# Server Send Event for sending current status to frontend
 	# status will then be converted to speech afterwards
 	def gen():
+		i = 1
 		while True:
-			yield 'data: {}\n\n'.format(qStatus.get())
+			speech = qStatus.get()
+			print (speech)
+			time.sleep(0.1)
+			yield 'data: {}\n\n'.format(speech)
 	return Response(gen(), mimetype='text/event-stream')
 
 @app.route('/player_info')
 def player_info():
-    # FaceRecog.getFrameOrInfo() will return values after all players' faces found for 2 seconds
-    # player_info = {'Player 1': [location(cm), angle(degree)], 'Player 2': ...}
-    # format: DICTIONARY = {STRING: [float, float]}
-    def gen():
-        while True:
-            yield 'data: {}\n\n'.format(qPlayer.get())
-    return Response(gen(), mimetype='text/event-stream')
+	# FaceRecog.getFrameOrInfo() will return values after all players' faces found for 2 seconds
+	# player_info = {'Player 1': [location(cm), angle(degree)], 'Player 2': ...}
+	# format: DICTIONARY = {STRING: [float, float]}
+	def gen():
+		while True:
+			PlayerInfo = qPlayer.get()
+			ReceivePlayerInfo(PlayerInfo)
+			yield 'data: {}\n\n'.format(PlayerInfo)
+	return Response(gen(), mimetype='text/event-stream')
 
 #############################################PAKZAN CODE ENDS HERE
 
+def ReceivePlayerInfo(PlayerInfo):
+	PlayerList = []
+	for key, value in PlayerInfo.items():
+		PlayerList.append(value)
+	PlayerList.sort(reverse=True)
 
-@app.route('/ReceivePlayerInfo', methods = ['POST'])
-def ReceivePlayerInfo():
-	global Player1Position, Player2Position, Player3Position, ResetBtn
+	global Player1Position, Player2Position, Player3Position, ResetBtn, ExistingPlayer
 	ResetBtn = ""
 	try:
-		Player1Position = request.form['Player 1'].split()
-		Player1Position = [float(i) for i in Player1Position]
+		Player1Position = PlayerList[0]
 		Player1Position.append(0)
-		Player2Position = request.form['Player 2'].split()
-		Player2Position = [float(i) for i in Player2Position]
+		ExistingPlayer[0] = 1
+		Player2Position = PlayerList[1]
 		Player2Position.append(0)
-		Player3Position = request.form['Player 3'].split()
-		Player3Position = [float(i) for i in Player3Position]
+		ExistingPlayer[1] = 1
+		Player3Position = PlayerList[2]
 		Player3Position.append(0)
+		ExistingPlayer[2] = 1
 
 	except Exception as e:
 		pass
-	print(request.form)
-	print(Player1Position)
-	print(Player2Position)
-	print(Player3Position)
+	print("from main:" + str(Player1Position))
+	print("from main:" + str(Player2Position))
+	print("from main:" + str(Player3Position))
 	return "Player position registered"
 
 
 @app.route('/kek', methods = ['POST'])
 def kekk():
 	Distribute1Card([1,2,3], Player1Card)
-	return 'uhoh'
+	return ''
 
 @app.route('/initiate', methods=['POST'])
 def InitiateGame():
@@ -148,9 +162,14 @@ def info():
 
 
 def Distribute1Card(coordinate, card):
-	global test_i
+	global test_i, rank, suit
 	chain1.dispense()
+	rank = ""
+	suit = ""
+	while rank == "" or suit == "":
+		pass
 	card.append([rank, suit])
+
 	chain1.move_to(CardStationPosition)
 	chain1.grip(1)
 	chain1.move_to(coordinate)
@@ -209,11 +228,11 @@ def PromptforBet(x, money):
 		Jumbotron_text2 = '<font color="red">You are about opt out from the game. Are you sure?</font>'
 	else: 
 		Jumbotron_text2 = '<font color="red">You are about to place S$' + str(bet) +". Are you sure?</font>"
-	while ArduinoDecision == "":
+	while True:
 		if ArduinoDecision == "NO":
 			ActivateArduino = ""
 			ArduinoDecision = ""
-			PromptforBet(x, money)
+			return PromptforBet(x, money)
 		elif ArduinoDecision == "YES":
 			if x == 1:
 					Player1Money -= Player1Bet
@@ -240,25 +259,25 @@ def PromptforBet(x, money):
 
 def PromptforCard(coordinate, card):
 		global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, ActivateArduino, ArduinoDecision
-		ActivateArduino = "YES"
+		ActivateArduino = "DECISION"
 		while ArduinoDecision != "NO":
 			if ArduinoDecision == "YES":
 				if len(card) < 4:
 					Jumbotron_text2 = '<font color="green">You indicated that you want to add 1 more card, just a sec ;)</font>'
 					ArduinoDecision = ""
-					ActivateArduino = "NO"
+					ActivateArduino = ""
 					Distribute1Card(coordinate, card)
 					Jumbotron_text2 = "Do you wish to add more cards?"
-					ActivateArduino = "YES"	
+					ActivateArduino = "DECISION"	
 				elif len(card) == 4:
 					Jumbotron_text2 = '<font color="green">You indicated that you want to add 1 more card, just a sec ;)</font><br><font color="red">This is the fifth and will the last card.</font>'
 					ArduinoDecision = ""
-					ActivateArduino = "NO"
+					ActivateArduino = ""
 					Distribute1Card(coordinate, card)
 					return "0"
 		Jumbotron_text2 = '<font color="red">You indicated that you don''t want anymore card, good luck :)</font>'
 		ArduinoDecision = ""
-		ActivateArduino = "NO"
+		ActivateArduino = ""
 		return "0"
 
 
@@ -337,25 +356,25 @@ def EndGame(value1, value2, value3, value0):
 @app.route('/')
 def index():
 	global test_i, Player1Position, Player2Position, Player3Position, Player1Card, Player2Card, Player3Card, Player1CardValue, Player2CardValue, Player3CardValue, ArmCard, ArmCardValue, ActivateArduino, ArduinoDecision
-	'''Player1Position = []
-				Player2Position = []
-				Player3Position = []
-			
-				Player1Card = []
-				Player2Card = []
-				Player3Card = []
-			
-				Player1CardValue = 0
-				Player2CardValue = 0
-				Player3CardValue = 0
-			
-				ArmCard = []
-				ArmCardValue = 0
-				test_i = 0
-				ActivateArduino = "NO"
-				ArduinoDecision = ""
-			
-				ExistingPlayer = [1,1,1]'''
+	Player1Position = []
+	Player2Position = []
+	Player3Position = []
+
+	Player1Card = []
+	Player2Card = []
+	Player3Card = []
+
+	Player1CardValue = 0
+	Player2CardValue = 0
+	Player3CardValue = 0
+
+	ArmCard = []
+	ArmCardValue = 0
+	test_i = 0
+	ActivateArduino = "NO"
+	ArduinoDecision = ""
+
+	ExistingPlayer = [1,1,1]
 	return render_template('index.html')
 
 
@@ -370,7 +389,7 @@ def adminpage():
 
 @app.route('/adminfeeds', methods = ['GET'])
 def adminquery():
-	return jsonify(CardStationPosition = [CardStationPosition], Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ArmPosition = [ArmPosition], ArmCard = [ArmCard], ArmCardValue = ArmCardValue, Player1Position = [Player1Position], Player1Card = [str(Player1Card)], Player1CardValue = Player1CardValue, Player1Money = Player1Money, Player1Bet = Player1Bet, Player2Position = [Player2Position], Player2Card = [Player2Card], Player2CardValue = Player2CardValue, Player2Money = Player2Money, Player2Bet = Player2Bet, Player3Position = [Player3Position], Player3Card = [Player3Card], Player3CardValue = Player3CardValue, Player3Money = Player3Money, Player3Bet = Player3Bet)
+	return jsonify(CardStationPosition = [CardStationPosition], Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ArmPosition = [ArmPosition], ArmCard = [str(ArmCard)], ArmCardValue = ArmCardValue, Player1Position = [Player1Position], Player1Card = [str(Player1Card)], Player1CardValue = Player1CardValue, Player1Money = Player1Money, Player1Bet = Player1Bet, Player2Position = [Player2Position], Player2Card = [str(Player2Card)], Player2CardValue = Player2CardValue, Player2Money = Player2Money, Player2Bet = Player2Bet, Player3Position = [Player3Position], Player3Card = [str(Player3Card)], Player3CardValue = Player3CardValue, Player3Money = Player3Money, Player3Bet = Player3Bet)
 
 @app.route('/feedback', methods = ['GET'])
 def RealtimeFeedback():
@@ -388,12 +407,15 @@ def ActualGameProgress():
 	#Distribute 1 card to each player, repeat 2 times
 	BetPhase = "show"
 	Jumbotron_title = "Phase 1: Bet Placing"
-	CurrPlayer = 1
-	PromptforBet(1, Player1Money)
-	CurrPlayer = 2
-	PromptforBet(2, Player2Money)
-	CurrPlayer = 3
-	PromptforBet(3, Player3Money)
+	if ExistingPlayer[0] == 1:
+		CurrPlayer = 1
+		PromptforBet(1, Player1Money)
+	if ExistingPlayer[1] == 1:
+		CurrPlayer = 2
+		PromptforBet(2, Player2Money)
+	if ExistingPlayer[2] == 1:
+		CurrPlayer = 3
+		PromptforBet(3, Player3Money)
 	CurrPlayer = 0
 	BetPhase = ""
 	print(Player1Bet)
@@ -436,17 +458,17 @@ def ActualGameProgress():
 	if ExistingPlayer[0] == 1:
 		Jumbotron_text1 = 'Adding cards for <font color="red">Player 1</font>'
 		Jumbotron_text2 = "Please indicate your choice with the device provided."
-		PromptforCardWithoutArduino(Player1Position, Player1Card)
+		PromptforCard(Player1Position, Player1Card)
 		time.sleep(3)
 	if ExistingPlayer[1] == 1:
 		Jumbotron_text1 = 'Adding Cards for <font color="red">Player 2</font>'
 		Jumbotron_text2 = "Please indicate your choice with the device provided."
-		PromptforCardWithoutArduino(Player2Position, Player2Card)
+		PromptforCard(Player2Position, Player2Card)
 		time.sleep(3)
 	if ExistingPlayer[2] == 1:
 		Jumbotron_text1 = 'Adding Cards for <font color="red">Player 3</font>'
 		Jumbotron_text2 = "Please indicate your choice with the device provided."
-		PromptforCardWithoutArduino(Player3Position, Player3Card)
+		PromptforCard(Player3Position, Player3Card)
 		time.sleep(3)
 	print(Player1Card)
 	print(Player2Card)
@@ -491,4 +513,4 @@ def ActualGameProgress():
 
 
 if __name__ == '__main__':
-	app.run(host = "0.0.0.0", debug = True)
+	app.run(host = "0.0.0.0", debug = True, use_reloader = False)

@@ -1,28 +1,91 @@
 <html>
   <head>
-    <title>Video Streaming Demonstration</title>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <title>Casino Machine</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0">
+
+    <script src="static/script/jquery.min.js"></script>
+    <link rel="stylesheet" href="static/css/bootstrap.css">
+
+    <link rel="stylesheet" href="static/css/general.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
+    <script src="static/script/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="static/css/font-awesome.min.css">
   </head>
-  <body>
-    <h1>Video Streaming Demonstration</h1>
-    <img id="webcam" src="{{ url_for('video_feed') }}">
+  <body onload="myFunction()">
+    <div id="loader"></div>
+    <div id="content" class="container animate-bottom" style="display: none">
+      <br>
+      <br>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="jumbotron">
+            <h1 class = display-3>Player Registration</h1>
+            <hr class="my-4">
+            <div class="row">
+              <div class="col-sm-6">
+                <center><img class="img-thumbnail" id="webcam" src="{{ url_for('video_feed') }}"></center>
+              </div>
+              <div class="col-sm-6">
+                <br><br>
+                <ul id="myUL">
+                  <h2><font color="red">Please look into the camera to register.</font></h2>
+                  <li id="Player1">Player 1 Registered</li>
+                  <li id="Player2">Player 2 Registered</li>
+                  <li id="Player3">Player 3 Registered</li>
+                  <li id="GameStart">Say "Start the Game" or <a onclick="FailSafe()"><font color="green">Click me</font></a></li>
+                  <li>Sit still and wait for final comfirmation</li>
+                </ul>
+              </div>
+            </div>
+            
+          </div>
+          <!-- <div class="card">
+            <div class="card-header">Registering Players</div>
+            <div class="card-body">
+              <center><img id="webcam" src="{{ url_for('video_feed') }}"></center>
+            </div>
+            <div class="card-body">
+              <div class="card text-white bg-success hidden" id="Feedback">
+                <div class="card-body">
+                  <h3 id="card-text"></h3>
+                </div>
+              </div>
+            </div>
+          </div> -->
+        </div>
+      </div>
+    </div>
+    
   </body>
+  <script>
+    // Add a "checked" symbol when clicking on a list item
+    var list = document.querySelector('ul');
+    list.addEventListener('click', function(ev) {
+      if (ev.target.tagName === 'LI') {
+        ev.target.classList.toggle('checked');
+      }
+    }, false);
+
+    var myVar;
+
+    function myFunction() {
+        myVar = setTimeout(showPage, 300);
+    }
+
+    function showPage() {
+      document.getElementById("loader").style.display = "none";
+      document.getElementById("content").style.display = "block";
+    }
+  </script>
   <script type="text/javascript">  	
 	//get player info if positions of all players found
   	var source_info = new EventSource("/player_info");
     source_info.onmessage = function(event) {
     	// $('#webcam').remove()
+      $(location).attr('href','/GameStarted.html')
     	console.log(event.data)
-        $.ajax({
-                method: 'POST',
-                url: "/ReceivePlayerInfo",
-                data: event.data,
-                dataType : 'json',
-                success: function(data, status){
-                  console.log(event.data)
-                  $(location).attr('href','/GameStarted.html')
-                }
-        });
     }
   	
   	//get current status from flask server
@@ -31,7 +94,23 @@
     source.onmessage = function(event) {
     	msg = new SpeechSynthesisUtterance(event.data)
     	window.speechSynthesis.speak(msg)
+      switch(event.data) {
+        case "Game Started":
+            $('#GameStart').addClass("checked")
+            break;
+        case "Player 3 Registered":
+            $('#Player3').addClass("checked")
+        case "Player 2 Registered":
+            $('#Player2').addClass("checked")
+        case "Player 1 Registered":
+            $('#Player1').addClass("checked")
+            break;
+      }
+      
     	console.log(event.data)
     }
+    
   </script>
 </html>
+
+

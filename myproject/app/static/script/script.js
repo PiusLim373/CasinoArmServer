@@ -40,6 +40,8 @@ function initiate(){
     })
 }
 
+
+
 //############################LOOP This All the time##################//
 (function loopthis(i){
             setTimeout(function(){

@@ -39,8 +39,8 @@ def Voice2Text(qCommand):
             recognizer.adjust_for_ambient_noise(source)
             try:
                 # show the user the transcription
-                audio = recognizer.listen(source, 2, 1)
-                texts = recognizer.recognize_google(audio, show_all=True)
+                audio = recognizer.listen(source, 1, 1)
+                texts = recognizer.recognize_google(audio, show_all=True, language="en-GB")
                 qCommand.put(texts)
                 print(texts)
             except (sr.RequestError, sr.UnknownValueError, sr.WaitTimeoutError) as e:
@@ -63,9 +63,9 @@ def UpdateStareList(frame, rect, face_encoding, name, starer_idxes):
         # find the person by comparing distance of face encoding
         face_distances = face_recognition.face_distance(
             starer_encodings, face_encoding)
-        if len(face_distances) != 0 and min(face_distances) < 0.5:
+        if len(face_distances) != 0 and min(face_distances) < 0.3:
             index = np.argmin(face_distances)
-            if index < len(starer_idxes):
+            if index in starer_idxes:
                 starer_idxes.remove(index)
 
             # add person to player list if:
@@ -101,6 +101,8 @@ def SetLabel(frame, label, point):
 def DispResult(frame):
     global player_info, player_encodings, player_names, stare_time
 
+    # get player names in frame
+    frame_player_names = [e for e in face_names if e not in 'Unknown']
     # starer_idxes is used to check which starer index is checked
     # the idxes will be removed after checked starer_encodings
     starer_idxes = list(range(len(starer_encodings)))
@@ -128,7 +130,7 @@ def DispResult(frame):
                  ', ' + str(y), (left, bottom))
 
         #set player name and location if all players are found
-        if start_game and len(face_names) == len(player_names) and 'Unknown' not in face_names:
+        if start_game and len(frame_player_names) == len(player_names):
             player_info[name] = [distance, angle]
         else:
             player_info = {}
@@ -179,7 +181,7 @@ def ProcessFrame(rgb_frame):
         # See if the face is a match for the known face(s)
         face_distances = face_recognition.face_distance(
             known_face_encodings, face_encoding)
-        if len(face_distances) != 0 and min(face_distances) < 0.5:
+        if len(face_distances) != 0 and min(face_distances) < 0.4:
             name_index = np.argmin(face_distances)
             name = known_face_names[name_index]
 
@@ -211,7 +213,7 @@ def ReadWriteFace():
     DispResult(frame)
 
     # Display the resulting image
-    cv2.imshow('Casino', frame)
+    # cv2.imshow('Casino', frame)
 
     #put frame as jpg to queue(for Flask)
     ret, jpeg = cv2.imencode('.jpg', frame)
@@ -262,8 +264,8 @@ def main(qFrame, tmpStatus, qPlayer):
     #set window size
     cv2.namedWindow("Casino", cv2.WINDOW_AUTOSIZE)
     # put voice 
-    qStatus.put("Welcome")
-    qStatus.put("Welcome to the Casino.")
+    # qStatus.put("Welcome")
+    # qStatus.put("Welcome to the Casino.")
     qStatus.put("Please look into the camera to register.")
 
     while True:
@@ -273,16 +275,14 @@ def main(qFrame, tmpStatus, qPlayer):
         #if found player for more than 2 seconds, return player_info to caller
         if start_game and time.time() - missing_time > 2:
             # put voice
-            qStatus.put("All players located. Distributing cards.")
+            qStatus.put("All players located.")
 
             #store player info into a queue to be retrive from flask
             #store twice to make sure main thread got the value
-            player_info_str = {}
-            for key in player_info:
-                player_info_str[key] = str(player_info[key][0]) + ' ' + str(player_info[key][1])
-            qPlayer.put(player_info_str)
-            qPlayer.put(player_info_str)
-            print(player_info_str)
+            qPlayer.put(player_info)
+            qPlayer.put(player_info)
+            qPlayer.put(player_info)
+            print(player_info)
 
             # Release handle to the webcam
             video_capture.release()
@@ -310,7 +310,9 @@ def main(qFrame, tmpStatus, qPlayer):
                     player_encodings.pop(index)
                 else:
                     # put voice text
+                    print("Player Registered")
                     qStatus.put("Player " + str(index + 1) + " Registered")
+                    
 
             player_names.extend(face_names)
             player_encodings.extend(face_encodings)
@@ -318,11 +320,13 @@ def main(qFrame, tmpStatus, qPlayer):
             # status for register 1st player
             if len(player_names) == 1:
                 # put voice text
+                print("Player Registered")
                 qStatus.put("Player " + str(1) + " Registered")
+                
 
         # Hit <Enter> on the keyboard to confirm player and start play
         # Voice command with 'start' / 'stop' / 'game' will do the same thing
-        elif HasKeywords(command, ['start', 'stop', 'game']) or key == ord('\r'):
+        elif len(player_names) > 0 and (HasKeywords(command, ['start', 'stop', 'game']) or key == ord('\r')):
             # Replace known faces to prevent confusion
             known_face_names.clear()
             for index in range(len(player_names)):
@@ -333,7 +337,7 @@ def main(qFrame, tmpStatus, qPlayer):
             start_game = True
 
             # put voice text
-            qStatus.put("Game Start")
+            qStatus.put("Game Started")
             qStatus.put("Locating all players. Please sit still.")
 
         # Hit 'r' to restart
