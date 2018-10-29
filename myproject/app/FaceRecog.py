@@ -10,6 +10,15 @@ import time
 from PIL import Image
 # for voice input
 import speech_recognition as sr
+# key input
+from pynput import keyboard
+
+
+def OnPress(key):
+    try:
+        globals()['key'] = key.char  # single-char
+    except:
+        globals()['key'] = key.name  # other keys
 
 
 def HasKeywords(texts, keywords):
@@ -40,12 +49,13 @@ def Voice2Text(qCommand):
             try:
                 # show the user the transcription
                 audio = recognizer.listen(source, 1, 1)
-                texts = recognizer.recognize_google(audio, show_all=True, language="en-GB")
+                texts = recognizer.recognize_google(
+                    audio, show_all=True, language="en-GB")
                 qCommand.put(texts)
                 print(texts)
             except (sr.RequestError, sr.UnknownValueError, sr.WaitTimeoutError) as e:
                 print("Voice Error")
-            
+
 
 def IsWatching(frame):
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
@@ -53,7 +63,7 @@ def IsWatching(frame):
     detected = faces.detectMultiScale(frame, 1.3, 5)
 
     return len(detected) >= 1
- 
+
 
 def UpdateStareList(frame, rect, face_encoding, name, starer_idxes):
     (top, right, bottom, left) = rect
@@ -85,6 +95,7 @@ def UpdateStareList(frame, rect, face_encoding, name, starer_idxes):
             stare_time.append(time.time())
     return starer_idxes
 
+
 def SetLabel(frame, label, point):
     fontface = cv2.FONT_HERSHEY_SIMPLEX
     scale = 0.5
@@ -107,9 +118,9 @@ def DispResult(frame):
     # the idxes will be removed after checked starer_encodings
     starer_idxes = list(range(len(starer_encodings)))
     for (top, right, bottom, left), name, face_encoding in zip(face_locations, face_names, face_encodings):
-        
+
         starer_idxes = UpdateStareList(frame, (top, right, bottom, left),
-                        face_encoding, name, starer_idxes)
+                                       face_encoding, name, starer_idxes)
 
         # Draw a box around the face
         cv2.rectangle(frame, (left, top), (right, bottom), (100, 100, 100), 2)
@@ -166,13 +177,15 @@ def ProcessFrame(rgb_frame):
     # Find all the faces and face encodings in the current frame of video
     if HAS_GPU:
         # Use GPU
-        face_locations = face_recognition.face_locations(rgb_frame, model="cnn")
+        face_locations = face_recognition.face_locations(
+            rgb_frame, model="cnn")
         face_encodings = face_recognition.face_encodings(
             rgb_frame, face_locations, 10)
     else:
         # Use CPU
         face_locations = face_recognition.face_locations(rgb_frame)
-        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+        face_encodings = face_recognition.face_encodings(
+            rgb_frame, face_locations)
 
     face_names = []
     for face_encoding in face_encodings:
@@ -219,6 +232,7 @@ def ReadWriteFace():
     ret, jpeg = cv2.imencode('.jpg', frame)
     return b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n'
 
+
 # Initialize some variables
 face_locations = []
 face_encodings = []
@@ -229,6 +243,7 @@ player_encodings = []
 player_names = []
 prev_frame_time = time.time()
 start_game = False
+key = ''
 
 #additional feature
 starer_encodings = []
@@ -241,6 +256,7 @@ PROCESS_FRAME_PERIOD = 0
 recognizer = sr.Recognizer()
 microphone = sr.Microphone(device_index=1)
 
+
 def main(qFrame, tmpStatus, qPlayer):
     globals()['video_capture'] = cv2.VideoCapture(0)
     globals()['qStatus'] = tmpStatus
@@ -251,7 +267,11 @@ def main(qFrame, tmpStatus, qPlayer):
     thread.start()
     # end of voice command
 
-    global start_game, known_face_names, known_face_encodings, prev_frame_time
+    # keyboard listener to listen key event in background
+    key_lis = keyboard.Listener(on_press=OnPress)
+    key_lis.start()
+
+    global start_game, known_face_names, known_face_encodings, prev_frame_time, key
     missing_time = time.time()
     # Load face encodings
     with open(os.getcwd() + '/classmate/dataset_faces.dat', 'rb') as f:
@@ -263,7 +283,7 @@ def main(qFrame, tmpStatus, qPlayer):
 
     #set window size
     cv2.namedWindow("Casino", cv2.WINDOW_AUTOSIZE)
-    # put voice 
+    # put voice
     # qStatus.put("Welcome")
     # qStatus.put("Welcome to the Casino.")
     qStatus.put("Please look into the camera to register.")
@@ -287,7 +307,7 @@ def main(qFrame, tmpStatus, qPlayer):
             # Release handle to the webcam
             video_capture.release()
             cv2.destroyAllWindows()
-            
+
             return player_info
         elif len(player_info) == 0:
             missing_time = time.time()
@@ -297,11 +317,12 @@ def main(qFrame, tmpStatus, qPlayer):
             command = qCommand.get(False)
         except queue.Empty:
             command = []
-            
-        key = cv2.waitKey(1) & 0xFF
+
+        cv2.waitKey(1)
         # Hit <Space> to capture player image
         # or stare at the camera for 2 seconds(as shown in DispResult and IsWatching functions)
-        if (not start_game) and key == ord(' '):
+        if (not start_game) and key == 'space':
+            key = ''
             # Load pictures and learn how to recognize them.
             # Update player information if player already exits
             for index, player_name in enumerate(player_names):
@@ -312,7 +333,6 @@ def main(qFrame, tmpStatus, qPlayer):
                     # put voice text
                     print("Player Registered")
                     qStatus.put("Player " + str(index + 1) + " Registered")
-                    
 
             player_names.extend(face_names)
             player_encodings.extend(face_encodings)
@@ -322,11 +342,11 @@ def main(qFrame, tmpStatus, qPlayer):
                 # put voice text
                 print("Player Registered")
                 qStatus.put("Player " + str(1) + " Registered")
-                
 
         # Hit <Enter> on the keyboard to confirm player and start play
         # Voice command with 'start' / 'stop' / 'game' will do the same thing
-        elif len(player_names) > 0 and (HasKeywords(command, ['start', 'stop', 'game']) or key == ord('\r')):
+        elif len(player_names) > 0 and (HasKeywords(command, ['start', 'stop', 'game']) or key == 'enter'):
+            key = ''
             # Replace known faces to prevent confusion
             known_face_names.clear()
             for index in range(len(player_names)):
@@ -341,17 +361,19 @@ def main(qFrame, tmpStatus, qPlayer):
             qStatus.put("Locating all players. Please sit still.")
 
         # Hit 'r' to restart
-        elif key == ord('r'):
+        elif key == 'r':
+            key = ''
             globals()['known_face_names'] = []
             globals()['known_face_encodings'] = []
-            globals()['player_encodings']  = []
-            globals()['player_names']  = []
+            globals()['player_encodings'] = []
+            globals()['player_names'] = []
             globals()['player_info'] = {}
-            globals()['start_game']  = False
+            globals()['start_game'] = False
 
             # os.execl(sys.executable, sys.executable, *sys.argv)
         # Hit 'q' or cross button to quit
-        elif key == ord('q') or cv2.getWindowProperty('Casino', cv2.WINDOW_AUTOSIZE) < 0:
+        elif key == 'q' or cv2.getWindowProperty('Casino', cv2.WINDOW_AUTOSIZE) < 0:
+            key = ''
             break
 
     # Release handle to the webcam
@@ -371,4 +393,3 @@ if __name__ == "__main__":
     process = Process(target=main, args=(
         qFrame, qStatus, qPlayer))
     process.start()
-    
