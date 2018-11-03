@@ -7,13 +7,16 @@ import subprocess
 from pprint import pprint
 import serial
 import collections
-from Debug import pakzan, ik
-#import ik
+#from Debug import pakzan, ik
+from arm_pos import ik
 from multiprocessing import Process, Queue
 import logging
+# import pyttsx3
 
 app = Flask(__name__)
 
+# engine = pyttsx3.init()
+# engine.setProperty('rate', rate-50)
 log = logging.getLogger('werkzeug')
 log.disabled = True
 app.logger.disabled = True
@@ -39,10 +42,10 @@ Player1CardValue = 0
 Player2CardValue = 0
 Player3CardValue = 0
 
-ArmPosition = [0, 0, 0]   #This is position of Arm's Card deck
+ArmPosition = [0,40,0]   #This is position of Arm's Card deck
 ArmCard = []
 ArmCardValue = 0
-CardStationPosition = [1,2,3]
+ArmMoney = 0
 
 Jumbotron_title = ""
 Jumbotron_text1 = ""
@@ -60,8 +63,14 @@ ArduinoDecision = ""
 ArduinoBet = 0
 rank = ""
 
-chain1 = ik.chain1
-#chain1 = ik.Kinematics(28,28,7,4)
+#chain1 = ik.chain1
+
+###Debug mode
+# debug mode
+# Player1Position = [32.6,44.3,23.9]
+# Player2Position = [12.6,22.8,30.8]
+# Player3Position = [11.5,8,22.6, 2]
+# ExistingPlayer = [1,1,1]
 
 #############################################PAKZAN CODE STARTS HERE
 qFrame = Queue()
@@ -112,13 +121,11 @@ def player_info():
 			yield 'data: {}\n\n'.format(PlayerInfo)
 	return Response(gen(), mimetype='text/event-stream')
 
-#############################################PAKZAN CODE ENDS HERE
-
 def ReceivePlayerInfo(PlayerInfo):
 	PlayerList = []
 	for key, value in PlayerInfo.items():
 		PlayerList.append(value)
-	PlayerList.sort(reverse=True)
+	PlayerList.sort(reverse=True, key=lambda x: x[1])
 
 	global Player1Position, Player2Position, Player3Position, ResetBtn, ExistingPlayer
 	ResetBtn = ""
@@ -140,6 +147,80 @@ def ReceivePlayerInfo(PlayerInfo):
 	print("from main:" + str(Player3Position))
 	return "Player position registered"
 
+
+#############################################PAKZAN CODE ENDS HERE
+
+#############################################MINGJI CODE STARTS HERE
+
+def get_result(player_hand, dealer_hand):
+	player_score = CompileCardValue(player_hand)
+	dealer_score = CompileCardValue(dealer_hand)
+
+	if player_score > 21 and dealer_score <= 21:
+		return 'dealer'
+
+	if player_score > 21 and dealer_score > 21:
+		return 'draw'
+
+	if player_score <= 21 and dealer_score > 21:
+		return 'player'
+
+	if len(player_hand) < 5 and len(dealer_hand) < 5 and player_score > dealer_score:
+		return 'player'
+
+	if len(player_hand) < 5 and len(dealer_hand) < 5 and player_score < dealer_score:
+		return 'dealer'
+
+	if len(player_hand) == 5 and len(dealer_hand) < 5:
+		if player_score <= 21 and dealer_score != 21:
+			return 'player'
+		if player_score <= 21 and dealer_score == 21:
+			return 'draw'
+
+	if len(dealer_hand) == 5 and len(player_hand) < 5:
+		if dealer_score <= 21 and player_score != 21:
+			return 'player'
+		if dealer_score <= 21 and player_score == 21:
+			return 'draw'
+
+	if len(dealer_hand) == 5 and len(player_hand) == 5:
+		if dealer_score <= 21 and player_score > 21:
+			return 'dealer'
+		if dealer_score > 21 and player_score <= 21:
+			return 'player'
+		if dealer_score <= 21 and player_score <= 21:
+			return 'draw'
+
+	return 'draw'
+
+def get_bet_rate(hand):
+	score = CompileCardValue(hand)
+	ace_count = hand.count('1')
+	jack_count = hand.count('11')
+	queen_count = hand.count('12')
+	king_count = hand.count('13')
+
+	if len(hand) < 5 and score < 21:
+		return 1
+
+	if len(hand) == 2 and ace_count == 2:
+		return 3
+
+	if len(hand) == 2 and ace_count == 1 or jack_count == 1 or queen_count == 1 or king_count == 1:
+		return 2
+
+	if len(hand) == 5 and score < 21:
+		return 2
+
+	if len(hand) < 5 and score == 21:
+		return 2
+
+	if len(hand) == 5 and score == 21:
+		return 3
+
+	
+
+###########################################################MINGJI CODES END HERE
 
 @app.route('/kek', methods = ['POST'])
 def kekk():
@@ -166,13 +247,15 @@ def Distribute1Card(coordinate, card):
 	while rank == "":
 		pass
 	card.append(rank)
-
-	chain1.move_to(CardStationPosition)
+	# card.append(pakzan.readValue(test_i))
+	chain1.dynamixel_write(CardStationPosition)
 	chain1.grip(1)
+	chain1.dynamixel_write(CardStationStandbyPosition)
 	chain1.move_to(coordinate)
 	chain1.grip(0)
 	print(Player1Card)
 	test_i += 1
+	chain1.dynamixel_write(CardStationStandbyPosition)
 	return "0"
 
 @app.route('/ArduinoDataHub', methods = ['POST', 'GET'])
@@ -193,8 +276,14 @@ def PromptforBet(x, money):
 	ActivateArduino = "BET"
 	while ArduinoDecision != "PLACEBET":
 		Jumbotron_text1 = '<font color="red">Player ' + str(x) +'</font> is placing bets.'
-		Jumbotron_text2 = "Please response with the device provided :)<br>You have S$" + str(money) + "."
+		Jumbotron_text2 = "Please respond with the device provided :)<br>You have S$" + str(money) + "."
+		# engine.say('Player' + str(x) + 'is placing bets, Please response with the device provided.')
+		# engine.runAndWait()
 		if ArduinoBet != "":
+			## Remake
+
+			## Remake ends
+
 			if x == 1:
 				Player1Bet = round(int(ArduinoBet)/100 * money)
 				bet = Player1Bet
@@ -250,7 +339,54 @@ def PromptforBet(x, money):
 			time.sleep(3)
 			return 0
 	
-
+def PromptforBetRemake(x, money):
+	global ArduinoBet, ActivateArduino, ArduinoDecision, Jumbotron_text1, Jumbotron_text2, Player1Bet, Player2Bet, Player3Bet, Player1Money, Player2Money, Player3Money, ExistingPlayer
+	ActivateArduino = "BET"
+	while ArduinoDecision != "PLACEBET":
+		Jumbotron_text1 = '<font color="red">Player ' + str(x) +'</font> is placing bets.'
+		Jumbotron_text2 = "Please respond with the device provided :)<br>You have S$" + str(money) + "."
+		if ArduinoBet != "":
+			bet = round(int(ArduinoBet)/100 * money)
+	ArduinoDecision = ""
+	ActivateArduino = "DECISION"
+	if bet == 0:
+		Jumbotron_text2 = '<font color="red">You are about opt out from the game. Are you sure?</font>'
+	else: 
+		Jumbotron_text2 = '<font color="red">You are about to place S$' + str(bet) +". Are you sure?</font>"
+	while True:
+		if ArduinoDecision == "NO":
+			ActivateArduino = ""
+			ArduinoDecision = ""
+			return PromptforBetRemake(x, money)
+		elif ArduinoDecision == "YES":
+			if bet != 0:
+				if x == 1:
+					Player1Bet = bet
+					Player1Money -= Player1Bet
+					money = Player1Money
+				elif x == 2:
+					Player2Bet = bet
+					Player2Money -= Player2Bet
+					money = Player2Money
+				elif x == 3:
+					Player3Bet = bet
+					Player3Money -= Player3Bet
+					money = Player3Money
+				Jumbotron_text2 = '<font color="green">Bet placed, you have S$' + str(money) + " remaining. Good Luck!</font>"
+			elif bet == 0:
+				Jumbotron_text2 = '<font color="red">Player ' + str(x) + " has opted out from the game. </font>"
+				if x == 1: 
+					ExistingPlayer[0] = 0
+				elif x == 2:
+					ExistingPlayer[1] = 0
+				elif x == 3:
+					ExistingPlayer[2] = 0
+				
+			ActivateArduino = ""
+			ArduinoBet = 0
+			ArduinoDecision = ""
+			time.sleep(3)
+			return 0
 
 	
 
@@ -283,7 +419,7 @@ def PromptforCardWithoutArduino(coordinate, card):
 		global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, decision
 		#wait for decision
 		while decision == "":
-			print("waiting...")
+			pass
 		while decision != 'NO' or decision == "":
 			if decision == "YES":
 				if len(card) < 4:
@@ -315,7 +451,7 @@ def CompileCardValue(card):
 			return sumcase1
 		
 def ChecktoAddCard(coordinate, card, value):
-	while value < 18:
+	while value < 17:
 		Distribute1Card(coordinate, card)
 		value = CompileCardValue(card)
 	return value
@@ -329,30 +465,25 @@ def OpenCardDeck(coordinate):
 	chain1.move_to(coordinate_push)  #Push deck until fall
 	return "0"
 
+def WaitforButtonPress():
+	global ActivateArduino, ArduinoDecision
+	ActivateArduino = "DECISION"
+	while ArduinoDecision != "YES":
+		pass
+	ArduinoDecision = ""
+	ActivateArduino = ""
+	return 0
 
-def EndGame(value1, value2, value3, value0):
-	ValueArrAlias = ['Player 1', 'Player 2', 'Player 3', 'Dealer']
-	ValueArr = [int(value1), int(value2), int(value3), int(value0)]
-	Winner = []
-	i = 0
-	j = 0
-	while i < len(ValueArr):
-		if ValueArr[i] > 21:
-			ValueArr[i] = 0
-		i += 1 
-	x = max(ValueArr) 
-	if x != 0:
-		while j < len(ValueArr):
-			if ValueArr[j] == x:
-				Winner.append(ValueArrAlias[j])
-			j += 1
-		return Winner
-	else:
-		return Winner	
+def WaitforButtonPressWithoutArduino():
+	global decision
+	while decision != "YES":
+		pass
+	decision = ""
+	return 0
 
 @app.route('/')
 def index():
-	global test_i, Player1Position, Player2Position, Player3Position, Player1Card, Player2Card, Player3Card, Player1CardValue, Player2CardValue, Player3CardValue, ArmCard, ArmCardValue, ActivateArduino, ArduinoDecision
+	global test_i, Player1Position, Player2Position, Player3Position, Player1Card, Player2Card, Player3Card, Player1CardValue, Player2CardValue, Player3CardValue, Player1Money, Player2Money, Player3Money, Player1Bet, Player2Bet, Player3Bet, ArmCard, ArmCardValue, ArmMoney, ResetBtn, ActivateArduino, ArduinoDecision, ExistingPlayer, ArduinoBet, decision, rank
 	Player1Position = []
 	Player2Position = []
 	Player3Position = []
@@ -361,17 +492,31 @@ def index():
 	Player2Card = []
 	Player3Card = []
 
+	Player1Money = 100
+	Player2Money = 100
+	Player3Money = 100
+
 	Player1CardValue = 0
 	Player2CardValue = 0
 	Player3CardValue = 0
 
+	Player1Bet = 0
+	Player2Bet = 0
+	Player3Bet = 0
+
 	ArmCard = []
 	ArmCardValue = 0
-	test_i = 0
-	ActivateArduino = "NO"
-	ArduinoDecision = ""
+	ArmMoney = 0
 
-	ExistingPlayer = [1,1,1]
+	ResetBtn = ""
+	ExistingPlayer = [0,0,0]
+
+	test_i = 0
+	decision = ""
+	ActivateArduino = ""
+	ArduinoDecision = ""
+	ArduinoBet = 0
+	rank = ""
 	return render_template('index.html')
 
 
@@ -390,7 +535,7 @@ def adminquery():
 
 @app.route('/feedback', methods = ['GET'])
 def RealtimeFeedback():
-	return jsonify(Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ResetBtn = ResetBtn, Player1Bet = Player1Bet,Player2Bet = Player2Bet, Player3Bet = Player3Bet, CurrPlayer = CurrPlayer, ArduinoBet = ArduinoBet, BetPhase = BetPhase, Player1Money = Player1Money)
+	return jsonify(Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ResetBtn = ResetBtn, Player1Bet = Player1Bet,Player2Bet = Player2Bet, Player3Bet = Player3Bet, CurrPlayer = CurrPlayer, ArduinoBet = ArduinoBet, BetPhase = BetPhase, Player1Money = Player1Money, Player2Money = Player2Money, Player3Money = Player3Money, ExistingPlayer1 = ExistingPlayer[0], ExistingPlayer2 = ExistingPlayer[1], ExistingPlayer3 = ExistingPlayer[2])
 
 @app.route('/ArduinoStimulation', methods = ['POST'])
 def ArduinoStimulation():
@@ -399,27 +544,63 @@ def ArduinoStimulation():
 	print(decision)
 	return ':)'
 
+@app.route('/RestartWithoutReset', methods = ['POST'])
+def RestartWithoutReset():
+	global Player1Bet, Player2Bet, Player3Bet, Player1Card, Player2Card, Player3Card, Player1CardValue, Player2CardValue, Player3CardValue, ArmCard, ArmCardValue, decision, ActivateArduino, ArduinoDecision, ArduinoBet, rank, ResetBtn
+	Player1Bet = 0
+	Player2Bet = 0
+	Player3Bet = 0
+
+	Player1Card = []
+	Player2Card = []
+	Player3Card = []
+
+	Player1CardValue = 0
+	Player2CardValue = 0
+	Player3CardValue = 0
+
+	ArmCard = []
+	ArmCardValue = 0
+
+	decision = ""
+	ActivateArduino = ""
+	ArduinoDecision = ""
+	ArduinoBet = 0
+	rank = ""
+	ResetBtn = ""
+
+	return '/GameStarted.html'
+
 def ActualGameProgress():
+	global Player1Money, Player2Money, Player3Money, ArmMoney, Player1Bet, Player2Bet, Player3Bet
 	global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, ResetBtn, BetPhase, CurrPlayer
-	#Distribute 1 card to each player, repeat 2 times
+	# # Distribute 1 card to each player, repeat 2 times
+	#chain1.dynamixel_write(CardStationStandbyPosition)
 	BetPhase = "show"
-	Jumbotron_title = "Phase 1: Bet Placing"
+	Jumbotron_title = "Phase 1: Placing of Bets"
 	if ExistingPlayer[0] == 1:
 		CurrPlayer = 1
-		PromptforBet(1, Player1Money)
+		PromptforBetRemake(1, Player1Money)
 	if ExistingPlayer[1] == 1:
 		CurrPlayer = 2
-		PromptforBet(2, Player2Money)
+		PromptforBetRemake(2, Player2Money)
 	if ExistingPlayer[2] == 1:
 		CurrPlayer = 3
-		PromptforBet(3, Player3Money)
+		PromptforBetRemake(3, Player3Money)
 	CurrPlayer = 0
 	BetPhase = ""
 	print(Player1Bet)
 	print(Player2Bet)
 	print(Player3Bet)
 
+	# Player1Bet = 50
+	# Player2Bet = 60
+	# Player3Bet = 100
+	# Player1Money -= Player1Bet
+	# Player2Money -= Player2Bet
+	# Player3Money -= Player3Bet
 
+	Jumbotron_title = "Phase 2: Distribution of Card"
 	Jumbotron_text1 = 'Distributing cards to all players. <font color = "red">Please be patient :)</font>'
 	if ExistingPlayer[0] == 1:
 		Jumbotron_text2 = "Distributing card to Player 1."
@@ -449,24 +630,26 @@ def ActualGameProgress():
 	print(Player2Card)
 	print(Player3Card)
 	print(ArmCard)
-
+	#chain1.dynamixel_write(CardStationStandbyPosition)
 	#Ask Players if want to add more card
-	Jumbotron_title = "Phase 2"
+	Jumbotron_title = "Phase 3: Card Adding"
 	if ExistingPlayer[0] == 1:
 		Jumbotron_text1 = 'Adding cards for <font color="red">Player 1</font>'
 		Jumbotron_text2 = "Please indicate your choice with the device provided."
 		PromptforCard(Player1Position, Player1Card)
-		time.sleep(3)
+		#chain1.dynamixel_write(CardStationStandbyPosition)
+		time.sleep(1)
 	if ExistingPlayer[1] == 1:
 		Jumbotron_text1 = 'Adding Cards for <font color="red">Player 2</font>'
 		Jumbotron_text2 = "Please indicate your choice with the device provided."
 		PromptforCard(Player2Position, Player2Card)
-		time.sleep(3)
+		#chain1.dynamixel_write(CardStationStandbyPosition)
+		time.sleep(1)
 	if ExistingPlayer[2] == 1:
 		Jumbotron_text1 = 'Adding Cards for <font color="red">Player 3</font>'
 		Jumbotron_text2 = "Please indicate your choice with the device provided."
 		PromptforCard(Player3Position, Player3Card)
-		time.sleep(3)
+		time.sleep(1)
 	print(Player1Card)
 	print(Player2Card)
 	print(Player3Card)
@@ -482,27 +665,104 @@ def ActualGameProgress():
 	#decide whether to add more cards
 	Jumbotron_text1 = "Adding cards for myself :p"
 	Jumbotron_text2 = ""
-	time.sleep(3)
+	time.sleep(1)
 	ArmCardValue = ChecktoAddCard(ArmPosition, ArmCard, ArmCardValue)
+	#chain1.dynamixel_write(CardStationStandbyPosition)
 
 	#End Game, return a list of winners
 	#announce everyone to open card
-	Jumbotron_title = "Phase 3"
-	Jumbotron_text1 = '<font color="red">Please flip over all your cards</font>'
+	Jumbotron_title = "Phase 4: Dealer vs. Players"
+	Jumbotron_text1 = 'All players will compare your cards with the dealer.'
 	OpenCardDeck(ArmPosition)
-	Winner = EndGame(Player1CardValue, Player2CardValue, Player3CardValue, ArmCardValue)
-	time.sleep(5)
-	i = 0
-	Jumbotron_text2 = 'The game has ended.<br>Congratulation to <font color="red">'
-	if len(Winner) == 1:
-		Jumbotron_text2 += str(Winner[0])
-		Jumbotron_text2 += "</font> to be the winner of the game!"
-	else:
-		while i < (len(Winner)-1):
-			Jumbotron_text2 += str(Winner[i]) + ", "
-			i += 1
-		Jumbotron_text2 += "and " + str(Winner[i])
-		Jumbotron_text2 += "</font> to be the winners of the game!" 
+	time.sleep(3)
+	if (ExistingPlayer[0] == 1):
+		Jumbotron_text1 = '<font color="red">Player 1 please open your cards.</font>'
+		Jumbotron_text2 = "Very complicated calculation process is happening in the background..."
+		chain1.move_to(Player1Position)
+		Winner = get_result(Player1Card, ArmCard)
+		if Winner == "player":
+			BetRate = get_bet_rate(Player1Card)
+			print(BetRate)
+			Jumbotron_text1 = '<font color="green">Player 1 has won with odds of ' + str(BetRate) + " to 1 </font>"
+			Player1Money += ((1 + BetRate) * Player1Bet)
+			Jumbotron_text2 = "S$" + str(Player1Bet * BetRate) + " has been credited to Player 1, Congratulations!<br>Press Button 1 to continue."
+			WaitforButtonPress()
+			Player1Bet = 0
+		elif Winner == "dealer":
+			BetRate = get_bet_rate(ArmCard)
+			Jumbotron_text1 = '<font color="red">Player 1 had lost.</font>'
+			Jumbotron_text2 = "S$" + str(Player1Bet) +" of bet placed earlier will be credited to the dealer.<br>Press Button 1 to continue."
+			ArmMoney += Player1Bet
+			WaitforButtonPress()
+			Player1Bet = 0
+		elif Winner == "draw":
+			Jumbotron_text1 = "It's a draw!"
+			Jumbotron_text2 = "No money will be collected from player, S$" + str(Player1Bet) + " has been credited back to Player 1.<br>Press Button 1 to continue."
+			Player1Money += Player1Bet
+			WaitforButtonPress()
+			Player1Bet = 0
+		#chain1.dynamixel_write(CardStationStandbyPosition)
+
+	if (ExistingPlayer[1] == 1):
+		Jumbotron_text1 = '<font color="red">Player 2 please open your cards.</font>'
+		Jumbotron_text2 = "Very complicated calculation process is happening in the background..."
+		chain1.move_to(Player2Position)
+		Winner = get_result(Player2Card, ArmCard)
+		if Winner == "player":
+			BetRate = get_bet_rate(Player2Card)
+			print(BetRate)
+			Jumbotron_text1 = '<font color="green">Player 2 has won with odds of ' + str(BetRate) + " to 1 </font>"
+			Player2Money += ((1 + BetRate) * Player2Bet)
+			Jumbotron_text2 = "S$" + str(Player2Bet * BetRate) + " has been credited to Player 2, Congratulations!<br>Press Button 1 to continue."
+			WaitforButtonPress()
+			Player2Bet = 0
+		elif Winner == "dealer":
+			BetRate = get_bet_rate(ArmCard)
+			Jumbotron_text1 = '<font color="red">Player 2 had lost.</font>'
+			Jumbotron_text2 = "S$" + str(Player2Bet) +" of bet placed earlier will be credited to the dealer.<br>Press Button 1 to continue."
+			ArmMoney += Player2Bet
+			WaitforButtonPress()
+			Player2Bet = 0
+		elif Winner == "draw":
+			Jumbotron_text1 = "It's a draw!"
+			Jumbotron_text2 = "No money will be collected from player, S$" + str(Player2Bet) + " has been credited back to Player 2.<br>Press Button 1 to continue."
+			Player2Money += Player2Bet
+			WaitforButtonPress()
+			Player2Bet = 0
+		
+		#chain1.dynamixel_write(CardStationStandbyPosition)
+
+
+	if (ExistingPlayer[2] == 1):
+		Jumbotron_text1 = '<font color="red">Player 3 please open your cards.</font>'
+		Jumbotron_text2 = "Very complicated calculation process is happening in the background..."
+		chain1.move_to(Player3Position)
+		Winner = get_result(Player3Card, ArmCard)
+		if Winner == "player":
+			BetRate = get_bet_rate(Player3Card)
+			print(BetRate)
+			Jumbotron_text1 = '<font color="green">Player 3 has won with odds of ' + str(BetRate) + " to 1 </font>"
+			Player3Money += ((1 + BetRate) * Player3Bet)
+			Jumbotron_text2 = "S$" + str(Player3Bet * BetRate) + " has been credited to Player 3, Congratulations!<br>Press Button 1 to continue."
+			WaitforButtonPress()
+			Player3Bet = 0
+		elif Winner == "dealer":
+			BetRate = get_bet_rate(ArmCard)
+			Jumbotron_text1 = '<font color="red">Player 3 had lost.</font>'
+			Jumbotron_text2 = "S$" + str(Player3Bet) +" of bet placed earlier will be credited to the dealer.<br>Press Button 1 to continue."
+			ArmMoney += Player3Bet
+			WaitforButtonPress()
+			Player3Bet = 0
+		elif Winner == "draw":
+			Jumbotron_text1 = "It's a draw!"
+			Jumbotron_text2 = "No money will be collected from player, S$" + str(Player3Bet) + " has been credited back to Player 3.<br>Press Button 1 to continue."
+			Player3Money += Player3Bet
+			WaitforButtonPress()
+			Player3Bet = 0
+	chain1.dynamixel_write(CardStationStandbyPosition)
+	Jumbotron_title = "The End"
+	Jumbotron_text1 = "The game has ended, thank you for your participation"
+	Jumbotron_text2 = 'Press the <font color="green">CONTINUE</font> button to play 1 more round, or the <font color="red">RESET</font> button to start a <b>new</b> game.'
 	ResetBtn = "show"
 	
 
@@ -510,4 +770,11 @@ def ActualGameProgress():
 
 
 if __name__ == '__main__':
-	app.run(host = "0.0.0.0", debug = True, use_reloader = False)
+	global chain1
+	chain1 = ik.Kinematics(11,12,8,7)
+	global CardStationStandbyPosition,CardStationPosition
+	deck = chain1.deck
+	deck1 = chain1.deck1
+	CardStationStandbyPosition = deck1
+	CardStationPosition = deck
+	app.run(host = "192.168.1.101", debug = True, use_reloader = False)

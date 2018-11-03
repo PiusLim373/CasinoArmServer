@@ -142,7 +142,7 @@ def DispResult(frame):
 
         #set player name and location if all players are found
         if start_game and len(frame_player_names) == len(player_names):
-            player_info[name] = [distance, angle]
+            player_info[name] = [x, y]
         else:
             player_info = {}
 
@@ -226,7 +226,7 @@ def ReadWriteFace():
     DispResult(frame)
 
     # Display the resulting image
-    # cv2.imshow('Casino', frame)
+    cv2.imshow('Casino', frame)
 
     #put frame as jpg to queue(for Flask)
     ret, jpeg = cv2.imencode('.jpg', frame)
@@ -325,23 +325,25 @@ def main(qFrame, tmpStatus, qPlayer):
             key = ''
             # Load pictures and learn how to recognize them.
             # Update player information if player already exits
+            cur_player_len = len(player_names)
             for index, player_name in enumerate(player_names):
-                if player_name in face_names:
+                print(index)
+
+                face_distances = face_recognition.face_distance(
+                face_encodings, player_encodings[index])
+                print(face_distances)
+                if len(face_distances) != 0 and min(face_distances) < 0.4:
                     player_names.pop(index)
-                    player_encodings.pop(index)
-                else:
-                    # put voice text
-                    print("Player Registered")
-                    qStatus.put("Player " + str(index + 1) + " Registered")
+                    player_encodings.pop(index)                    
 
             player_names.extend(face_names)
             player_encodings.extend(face_encodings)
 
-            # status for register 1st player
-            if len(player_names) == 1:
-                # put voice text
+            # put voice text
+            for i in range(cur_player_len, len(player_names)):
                 print("Player Registered")
-                qStatus.put("Player " + str(1) + " Registered")
+                qStatus.put("Player " + str(i+1) + " Registered")
+            print(player_names) 
 
         # Hit <Enter> on the keyboard to confirm player and start play
         # Voice command with 'start' / 'stop' / 'game' will do the same thing
@@ -374,6 +376,7 @@ def main(qFrame, tmpStatus, qPlayer):
         # Hit 'q' or cross button to quit
         elif key == 'q' or cv2.getWindowProperty('Casino', cv2.WINDOW_AUTOSIZE) < 0:
             key = ''
+            start_game = True
             break
 
     # Release handle to the webcam

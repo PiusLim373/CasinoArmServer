@@ -24,33 +24,88 @@ function SendNO(){
     });
 }
 
-function ActivateArduino(x){
-    var arr = ["BET", "DECISION", ""];
-    console.log(arr[x]);
+function Send60(){
+    $.ajax({
+        method:'POST',
+        url:"/ArduinoDataHub",
+        data:{
+            'bet':'60',
+            'decision':''
+        },
+        dataType: "json",
+        success: function(response){
+            console.log(response);
+        }
+    });
+}
+function Send50(){
+    $.ajax({
+        method:'POST',
+        url:"/ArduinoDataHub",
+        data:{
+            "bet":"60",
+            "decision":""
+        },
+        dataType: "json",
+        success: function(response){
+            console.log(response);
+        }
+    });
+}
+function Send100(){
+    $.ajax({
+        method:'POST',
+        url:"/ArduinoDataHub",
+        data:{
+            "bet":"100",
+            "decision":""
+        },
+        dataType: "json",
+        success: function(response){
+            console.log(response);
+        }
+    });
+}
+function PLACEBET(){
+    $.ajax({
+        method:'POST',
+        url:"/ArduinoDataHub",
+        data:{
+            "bet":"",
+            "decision":"PLACEBET"
+        },
+        dataType: "json",
+        success: function(response){
+            console.log(response);
+        }
+    });
+}
+function YES(){
+    $.ajax({
+        method:'POST',
+        url:"/ArduinoDataHub",
+        data:{
+            "bet":"",
+            "decision":"YES"
+        },
+        dataType: "json",
+        success: function(response){
+            console.log(response);
+        }
+    });
+}
+function kek(){
     $.ajax({
         method:'POST',
         url:"/kek",
         data:{
-            'ActivateArduino':arr[x]
         },
         success: function(response){
             console.log(response);
         }
     });
 }
-function Test_Distribute1Card(){
-    
-    $.ajax({
-        method:'POST',
-        url:"/kek",
-        data:{
-        },
-        success: function(response){
-            console.log(response)
 
-        }
-    });
-}
 
 
 
@@ -60,7 +115,7 @@ function Test_Distribute1Card(){
                 
                 var admin = new XMLHttpRequest();
                 
-                admin.open('GET', 'http://localhost:5000/adminfeeds', true);
+                admin.open('GET', 'http://192.168.1.101:5000/adminfeeds', true);
                 
                 admin.onload = function() {
                     var data = JSON.parse(this.responseText);
@@ -96,5 +151,5 @@ function Test_Distribute1Card(){
                 if (--i){
                     loopthis(i); 
                 }
-            }, 1000);
+            }, 300);
         })(500000000);  

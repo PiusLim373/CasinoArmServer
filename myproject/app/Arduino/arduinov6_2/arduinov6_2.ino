@@ -1,8 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
-char* ssid = "SergeantZ HQ";
-char* password = "64959900";
+char* ssid = "DevourerOP";
+char* password = "123456789";
 const int yesbuttonPin = 5;   
 const int nobuttonPin = 4;
 const int ledPin = 13;     
@@ -42,7 +42,7 @@ void setup() {
 
 
 int SendDecisionJSON(String input){
-  http.begin("http://192.168.0.102:5000/ArduinoDataHub");    
+  http.begin("http://192.168.1.101:5000/ArduinoDataHub");    
   http.addHeader("Content-Type", "application/json");
   StaticJsonBuffer<300> JSONbuffer;
   JsonObject& JSONencoder = JSONbuffer.createObject();
@@ -58,7 +58,7 @@ int SendDecisionJSON(String input){
 }
 
 int SendBetJSON(int input){
-  http.begin("http://192.168.0.102:5000/ArduinoDataHub");    
+  http.begin("http://192.168.1.101:5000/ArduinoDataHub");    
   http.addHeader("Content-Type", "application/json");
   StaticJsonBuffer<300> JSONbuffer;
   JsonObject& JSONencoder = JSONbuffer.createObject();
@@ -114,8 +114,8 @@ int prevBet = 0;
 int BetLoop(){
     int PotMeter = analogRead(A0);
     int yesreading = digitalRead(yesbuttonPin);
-    int bet = map(PotMeter, 0, 1024, 0, 100);
-    if (abs(prevBet - bet) > 1){
+    int bet = map(PotMeter, 0, 1023, 0, 100);
+    if (abs(prevBet - bet) >= 1 ){
       SendBetJSON(bet);
       prevBet = bet;
     }
@@ -138,18 +138,18 @@ int BetLoop(){
 }
 ///////////////////////////////////////////////////////////////////// MAINLOOP
 void loop() { 
-  http.begin("http://192.168.0.102:5000/ArduinoDataHub");    
+  http.begin("http://192.168.1.101:5000/ArduinoDataHub");    
   http.addHeader("Content-Type", "application/json"); 
   int httpGetCode = http.GET();
   String GetPayload = http.getString();
   http.end();
   if(GetPayload == "BET"){
     while(GetPayload == "BET"){
-      
+      Serial.println("BET");
       digitalWrite(ledPin, LOW);
       BetLoop();
       delay(10);
-      http.begin("http://192.168.0.102:5000/ArduinoDataHub");    
+      http.begin("http://192.168.1.101:5000/ArduinoDataHub");    
       http.addHeader("Content-Type", "application/json"); 
       int httpGetCode = http.GET();
       GetPayload = http.getString();
@@ -163,7 +163,7 @@ void loop() {
       digitalWrite(ledPin, LOW);
       DecisionLoop();
       delay(10);
-      http.begin("http://192.168.0.102:5000/ArduinoDataHub");    
+      http.begin("http://192.168.1.101:5000/ArduinoDataHub");    
       http.addHeader("Content-Type", "application/json"); 
       int httpGetCode = http.GET();
       GetPayload = http.getString();

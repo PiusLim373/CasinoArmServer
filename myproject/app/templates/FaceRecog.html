@@ -1,13 +1,13 @@
 <html>
   <head>
-    <title>Casino Machine</title>
+    <title>Camsino</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0">
 
     <script src="static/script/jquery.min.js"></script>
     <link rel="stylesheet" href="static/css/bootstrap.css">
-
+    <link rel="icon" href="static/image/header-img.PNG">
     <link rel="stylesheet" href="static/css/general.css">
     <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
     <script src="static/script/bootstrap.min.js"></script>
@@ -16,6 +16,14 @@
   <body onload="myFunction()">
     <div id="loader"></div>
     <div id="content" class="container animate-bottom" style="display: none">
+      <br>
+      <br>
+      <br>
+      <br>
+      <br>
+      <br>
+      <br>
+      <br>
       <br>
       <br>
       <div class="row">
@@ -34,8 +42,8 @@
                   <li id="Player1">Player 1 Registered</li>
                   <li id="Player2">Player 2 Registered</li>
                   <li id="Player3">Player 3 Registered</li>
-                  <li id="GameStart">Say "Start the Game" or <a onclick="FailSafe()"><font color="green">Click me</font></a></li>
-                  <li>Sit still and wait for final comfirmation</li>
+                  <li id="GameStart">Say "Start the Game" <span class="badge badge-dark">BETA</span></li>
+                  <li id="SitStill">Sit still and wait for final comfirmation</li>
                 </ul>
               </div>
             </div>
@@ -105,6 +113,8 @@
         case "Player 1 Registered":
             $('#Player1').addClass("checked")
             break;
+        case "All players located":
+            $('#SitStill').addClass("checked")
       }
       
     	console.log(event.data)

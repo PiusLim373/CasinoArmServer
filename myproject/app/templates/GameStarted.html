@@ -1,13 +1,13 @@
   <html>
   <head>
-    <title>Casino Machine</title>
+    <title>Camsino</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0">
 
     <script src="static/script/jquery.min.js"></script>
     <link rel="stylesheet" href="static/css/bootstrap.css">
-
+    <link rel="icon" href="static/image/header-img.PNG">
     <link rel="stylesheet" href="static/css/general.css">
     <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
     <script type="text/javascript" src="static/script/script.js"></script>
@@ -23,21 +23,81 @@
     <div class=row>
 
       <div class="col-md-12 ">
-        <br><br><br>
+        <br><br><br><br><br><br><br><br>
         <div class="jumbotron mid" id="Jumbotron_title">
-          <h1 class = display-3></h1>
+          <h1 class = display-3>Phase 1: Bet Placing</h1>
           <hr class="my-4">
-          <h3 id="Jumbotron_text1"></h3>
+          <h3 id="Jumbotron_text1">Distributing cards to all players. <font color = "red">Please be patient :)</font></h3>
 
-          <h3 id="Jumbotron_text2"></h3>
+          <h3 id="Jumbotron_text2">Distributing card to Player 1.</h3>
           <br>
           <div id="BetDiv" class="progress progress-striped active hidden">
             <div id="betbar" class="progress-bar" style="width: "></div>
           </div>
 		      
         </div>
-        <button id="ResetBtn" class="mid btn btn-primary ResetBtn hidden" onclick="location.href='/'">Restart Game</button>
         
+        
+      </div>
+      <div class="col-md-8">
+        <center><button id="ContinueBtn" class="mid btn btn-success ResetBtn hidden" onclick="OneMoreRound()">Continue Game</button></center>
+      </div>
+      <div class="col-md-4">
+        <center><button id="ResetBtn" class="mid btn btn-danger ResetBtn hidden" onclick="location.href='/'">Restart Game</button></center>
+      </div>
+      <div class="col-md-4">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th scope="col" style="width:40%"></th>
+              <th scope="col" style="width:30%">Betting Amount</th>
+              <th scope="col" style="width:30%">Remaining Credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="table-active" id="Player1Status">
+              <th scope="row">Player 1</th>
+              <td id="Player1Bet"></td>
+              <td id="Player1Money"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-4">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th scope="col" style="width:40%"></th>
+              <th scope="col" style="width:30%">Betting Amount</th>
+              <th scope="col" style="width:30%">Remaining Credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="table-active" id="Player2Status">
+              <th scope="row">Player 2</th>
+              <td id="Player2Bet"></td>
+              <td id="Player2Money"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-4">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th scope="col" style="width:40%"></th>
+              <th scope="col" style="width:30%">Betting Amount</th>
+              <th scope="col" style="width:30%">Remaining Credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="table-active" id="Player3Status">
+              <th scope="row">Player 3</th>
+              <td id="Player3Bet"></td>
+              <td id="Player3Money"></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       <!--div class="col-md-12">
       	<button onclick="Initialize_AGV()">Test button</button>
