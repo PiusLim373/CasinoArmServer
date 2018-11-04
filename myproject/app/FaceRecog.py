@@ -57,43 +57,43 @@ def Voice2Text(qCommand):
                 print("Voice Error")
 
 
-def IsWatching(frame):
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-    faces = cv2.CascadeClassifier('haarcascade_eye.xml')
-    detected = faces.detectMultiScale(frame, 1.3, 5)
+# def IsWatching(frame):
+#     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+#     faces = cv2.CascadeClassifier('haarcascade_eye.xml')
+#     detected = faces.detectMultiScale(frame, 1.3, 5)
 
-    return len(detected) >= 1
+#     return len(detected) >= 1
 
 
-def UpdateStareList(frame, rect, face_encoding, name, starer_idxes):
-    (top, right, bottom, left) = rect
-    # if is registering player and the perosn is watching camera
-    if (not start_game) and IsWatching(frame[top:bottom, left:right]):
-        # if the person is already in staring list
-        # find the person by comparing distance of face encoding
-        face_distances = face_recognition.face_distance(
-            starer_encodings, face_encoding)
-        if len(face_distances) != 0 and min(face_distances) < 0.3:
-            index = np.argmin(face_distances)
-            if index in starer_idxes:
-                starer_idxes.remove(index)
+# def UpdateStareList(frame, rect, face_encoding, name, starer_idxes):
+#     (top, right, bottom, left) = rect
+#     # if is registering player and the perosn is watching camera
+#     if (not start_game) and IsWatching(frame[top:bottom, left:right]):
+#         # if the person is already in staring list
+#         # find the person by comparing distance of face encoding
+#         face_distances = face_recognition.face_distance(
+#             starer_encodings, face_encoding)
+#         if len(face_distances) != 0 and min(face_distances) < 0.3:
+#             index = np.argmin(face_distances)
+#             if index in starer_idxes:
+#                 starer_idxes.remove(index)
 
-            # add person to player list if:
-            # the person not in player list AND stared camera for more than 1 seconds
-            face_distances = face_recognition.face_distance(
-                player_encodings, face_encoding)
-            if (len(face_distances) == 0 or min(face_distances) > 0.5) and time.time() - stare_time[index] > 1:
-                player_names.append(name)
-                player_encodings.append(face_encoding)
-                # put voice text
-                globals()['qStatus'].put(
-                    "Player " + str(len(player_names)) + " Registered")
-        else:
-            # if the person not in staring list
-            # add face encondings and stare time to lists
-            starer_encodings.append(face_encoding)
-            stare_time.append(time.time())
-    return starer_idxes
+#             # add person to player list if:
+#             # the person not in player list AND stared camera for more than 1 seconds
+#             face_distances = face_recognition.face_distance(
+#                 player_encodings, face_encoding)
+#             if (len(face_distances) == 0 or min(face_distances) > 0.5) and time.time() - stare_time[index] > 1:
+#                 player_names.append(name)
+#                 player_encodings.append(face_encoding)
+#                 # put voice text
+#                 globals()['qStatus'].put(
+#                     "Player " + str(len(player_names)) + " Registered")
+#         else:
+#             # if the person not in staring list
+#             # add face encondings and stare time to lists
+#             starer_encodings.append(face_encoding)
+#             stare_time.append(time.time())
+#     return starer_idxes
 
 
 def SetLabel(frame, label, point):
@@ -119,8 +119,8 @@ def DispResult(frame):
     starer_idxes = list(range(len(starer_encodings)))
     for (top, right, bottom, left), name, face_encoding in zip(face_locations, face_names, face_encodings):
 
-        starer_idxes = UpdateStareList(frame, (top, right, bottom, left),
-                                       face_encoding, name, starer_idxes)
+        #starer_idxes = UpdateStareList(frame, (top, right, bottom, left),
+        #                               face_encoding, name, starer_idxes)
 
         # Draw a box around the face
         cv2.rectangle(frame, (left, top), (right, bottom), (100, 100, 100), 2)
@@ -148,8 +148,8 @@ def DispResult(frame):
 
     # remove starers that stop staring
     # remove list in reverse order to prevent messing up the indexes
-    for index in sorted(starer_idxes, reverse=True):
-        del starer_encodings[index]
+    #for index in sorted(starer_idxes, reverse=True):
+        #del starer_encodings[index]
 
 
 def DispInfo(frame):
@@ -361,10 +361,12 @@ def main(qFrame, tmpStatus, qPlayer):
             # put voice text
             qStatus.put("Game Started")
             qStatus.put("Locating all players. Please sit still.")
+            time.sleep(3)
 
         # Hit 'r' to restart
         elif key == 'r':
-            key = ''
+            key = ''            
+            qStatus.put("Game Reset")
             globals()['known_face_names'] = []
             globals()['known_face_encodings'] = []
             globals()['player_encodings'] = []
