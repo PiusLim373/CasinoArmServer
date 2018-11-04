@@ -119,7 +119,7 @@ function kek(){
                 
                 admin.onload = function() {
                     var data = JSON.parse(this.responseText);
-                    $("#CardStationPosition").html(data.CardStationPosition);
+                    // $("#CardStationPosition").html(data.CardStationPosition);
                     $("#Jumbotron_title").html(data.Jumbotron_title);
                     $("#Jumbotron_text1").html(data.Jumbotron_text1);
                     $("#Jumbotron_text2").html(data.Jumbotron_text2);

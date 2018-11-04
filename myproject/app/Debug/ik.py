@@ -14,5 +14,16 @@ class chain1:
 			print("gripper opened")
 			return "gripper opened"
 		return "Card Picked"
+	class deck:
+		def move_to(coordinate):
+			time.sleep(1)
+			return "Arm Moved"
+	class deck1:
+		def move_to(coordinate):
+			time.sleep(1)
+			return "Arm Moved"
+	def dynamixel_write(coordinate):
+		return 0
+
 
 

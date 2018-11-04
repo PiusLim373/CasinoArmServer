@@ -19,7 +19,7 @@ if os.name == 'nt':
 
 class Kinematics:
     # Arduino setup
-    ARDUINO_PORT = 'COM5'
+    ARDUINO_PORT = 'COM14'
     ARDUINO_BAUD = 9600
 
     # Data Byte Length
@@ -297,7 +297,7 @@ class Kinematics:
         elif dxl_error != 0:
             return self.set_joint_speed(id,speed)
         else:
-            print("Dynamixel#%d speed has been set" % id)
+            print("Dynamixel#%d speed has been set: %s" % (id,speed))
             return 1
 
     # AX12A/AX18A rotate 300 degrees
@@ -310,8 +310,12 @@ class Kinematics:
         self.ERROR = 0.1
         self.STEP = 0.001
 
-        self.deck = self.get_pos()
-        self.deck1 = self.get_pos()
+        self.torque_enable(self.DXL5_ID)
+        self.grip(0)
+        self.torque_disable(self.DXL5_ID)
+
+        self.deck = [5.5622143368733346, 4.800337212223466, 0.5931392379824483, 0.16941750242513345]
+        self.deck1 = [6.027521842531979, 4.1458387427255925, 0.8130098175793901, 0.16941750242513345]
         
         # Enable Dynamixels Torque
         self.torque_enable(self.DXL1_ID)
@@ -330,9 +334,14 @@ class Kinematics:
         self.set_joint_speed(self.DXL3_ID,50)
         self.set_joint_speed(self.DXL4_ID,50)
         self.set_joint_speed(self.DXL5_ID,300)
-        self.grip(0)
-        self.dynamixel_write([0,0,0,0])
         self.dynamixel_write(self.deck1)
+        self.grip(0)
+        print("Press a key to continue...")
+        getch()
+        self.dynamixel_write(self.deck)
+        self.grip(1)
+        self.dynamixel_write(self.deck1)
+        self.grip(0)
         print('Initial pos: %s' %(self.fk([0,0,0,0])))
         print('Gripper: open')
 
@@ -421,13 +430,49 @@ class Kinematics:
         diff3 = abs(1024-current[2] - angle3)
         diff4 = abs(current[3] - angle4)
 
-        reduct = 1/2
+        reduct = 1
         print("Angle difference is %s and reduction value is %s" %([diff1,diff2,diff3,diff4],reduct))
+        if diff1 > 100:
+            print("apply speed limit 1")
+            diff2 = diff2 * reduct * 100/diff1
+            diff3 = diff3 * reduct * 100/diff1
+            diff4 = diff4 * reduct * 100/diff1
+            diff1 = diff1 * reduct * 100/diff1
+        if diff2 > 100:
+            print("apply speed limit 2")
+            diff1 = diff1 * reduct * 100/diff2
+            diff3 = diff3 * reduct * 100/diff2
+            diff4 = diff4 * reduct * 100/diff2
+            diff2 = diff2 * reduct * 100/diff2
+        if diff3 > 100:
+            print("apply speed limit 3")
+            diff1 = diff1 * reduct * 100/diff3
+            diff2 = diff2 * reduct * 100/diff3
+            diff4 = diff4 * reduct * 100/diff3
+            diff3 = diff3 * reduct * 100/diff3
+        if diff4 > 100:
+            print("apply speed limit 4")
+            diff1 = diff1 * reduct * 100/diff4
+            diff2 = diff2 * reduct * 100/diff4
+            diff3 = diff3 * reduct * 100/diff4
+            diff4 = diff4 * reduct * 100/diff4
 
-        self.set_joint_speed(self.DXL1_ID,int(diff1*reduct))
-        self.set_joint_speed(self.DXL2_ID,int(diff2*reduct))
-        self.set_joint_speed(self.DXL3_ID,int(diff3*reduct))
-        self.set_joint_speed(self.DXL4_ID,int(diff4*reduct))
+        diff1 = int(diff1)
+        diff2 = int(diff2)
+        diff3 = int(diff3)
+        diff4 = int(diff4)
+        if (diff1 == 0):
+            diff1 = 1
+        if (diff2 == 0):
+            diff2 = 1
+        if (diff3 == 0):
+            diff3 = 1
+        if (diff4 == 0):
+            diff4 = 1
+        self.set_joint_speed(self.DXL1_ID,(diff1))
+        self.set_joint_speed(self.DXL2_ID,(diff2))
+        self.set_joint_speed(self.DXL3_ID,(diff3))
+        self.set_joint_speed(self.DXL4_ID,(diff4))
 
         # FIRST LOOP
         # Allocate goal position value into byte array
@@ -924,7 +969,8 @@ class Kinematics:
             print("Dynamixel#%d speed has been set" % self.DXL6_ID)
         
         #Wait for card
-        while (dist_sensor.readline() != b'1\r\n'):
+        dispensetime = time.monotonic()
+        while (dist_sensor.readline() != b'1\r\n') and time.monotonic() - dispensetime < 3:
             dist_sensor.flush()
 
         # Stop
@@ -1000,17 +1046,17 @@ class Kinematics:
 #     output = chain.fk([theta1,theta2,theta3,theta4])
 #     output.append(deg3)
 #     print(output)
-#     chain.move_to(output)
-    #chain.dynamixel_write([theta1,theta2,theta3,theta4])
+#     #chain.move_to(output)
+#     chain.dynamixel_write([theta1,theta2,theta3,theta4])
 
+# while 1:
+#     x = float(input("x: ")) 
+#     y = float(input("y: "))
+#     z = float(input("z: "))
+#     print("\nInput:")
+#     print([x,y,z])
 
-# x = float(input("x: ")) 
-# y = float(input("y: "))
-# z = float(input("z: "))
-# print("\nInput:")
-# print([x,y,z])
-
-# chain.move_to([x,y,z])
+#     chain.move_to([x,y,z])
 
 
 

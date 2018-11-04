@@ -110,5 +110,26 @@
     </br>
   </div>
   </body>
-
+<script type="text/javascript">
+  $(document).ready(function test(){
+    //get current status from flask server
+    //text to speech API
+    var source = new EventSource("/audio_feed");
+    source.onmessage = function(event) {
+      msg = new SpeechSynthesisUtterance(event.data)
+      window.speechSynthesis.speak(msg)
+      
+      console.log(event.data)
+    }
+  });
+  $(document).ready(function initiate(){
+    $.ajax({
+        method:'POST',
+        url:"/initiate",
+        success:function(response){
+            console.log("SUCCESS!!!!!")
+            }
+        })  
+    });
+</script>
 </html>

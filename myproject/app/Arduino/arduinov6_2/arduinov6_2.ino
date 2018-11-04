@@ -114,8 +114,8 @@ int prevBet = 0;
 int BetLoop(){
     int PotMeter = analogRead(A0);
     int yesreading = digitalRead(yesbuttonPin);
-    int bet = map(PotMeter, 0, 1023, 0, 100);
-    if (abs(prevBet - bet) >= 1 ){
+    int bet = int(map(PotMeter, 0, 1023, 0, 100) / 5) * 5;
+    if (abs(prevBet - bet) > 0 ){
       SendBetJSON(bet);
       prevBet = bet;
     }

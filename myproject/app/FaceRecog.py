@@ -285,7 +285,7 @@ def main(qFrame, tmpStatus, qPlayer):
     cv2.namedWindow("Casino", cv2.WINDOW_AUTOSIZE)
     # put voice
     # qStatus.put("Welcome")
-    # qStatus.put("Welcome to the Casino.")
+    qStatus.put("Welcome to the Casino.")
     qStatus.put("Please look into the camera to register.")
 
     while True:
@@ -361,7 +361,6 @@ def main(qFrame, tmpStatus, qPlayer):
             # put voice text
             qStatus.put("Game Started")
             qStatus.put("Locating all players. Please sit still.")
-            time.sleep(3)
 
         # Hit 'r' to restart
         elif key == 'r':

@@ -7,19 +7,23 @@ import subprocess
 from pprint import pprint
 import serial
 import collections
-#from Debug import pakzan, ik
+# from Debug import pakzan, ik
 from arm_pos import ik
 from multiprocessing import Process, Queue
 import logging
-# import pyttsx3
+# speech
+import pyttsx3
+import numpy as np
+
+from win32com.client import Dispatch
+speak = Dispatch("SAPI.SpVoice")
 
 app = Flask(__name__)
 
-# engine = pyttsx3.init()
-# engine.setProperty('rate', rate-50)
-log = logging.getLogger('werkzeug')
-log.disabled = True
-app.logger.disabled = True
+
+# log = logging.getLogger('werkzeug')
+# log.disabled = True
+# app.logger.disabled = True
 
 Player1Position = []
 Player2Position = []
@@ -42,7 +46,7 @@ Player1CardValue = 0
 Player2CardValue = 0
 Player3CardValue = 0
 
-ArmPosition = [0,40,0]   #This is position of Arm's Card deck
+ArmPosition = [0.9817477042468106, 5.9610493417236015, 4.191858166362163, 5.909916648794081]   #This is position of Arm's Card deck
 ArmCard = []
 ArmCardValue = 0
 ArmMoney = 0
@@ -63,7 +67,7 @@ ArduinoDecision = ""
 ArduinoBet = 0
 rank = ""
 
-#chain1 = ik.chain1
+# chain1 = ik.chain1
 
 ###Debug mode
 # debug mode
@@ -83,6 +87,7 @@ def FaceRecog():
 
 @app.route('/video_feed')
 def video_feed():
+	global process
 	import FaceRecog
 	# Run FaceRecog multiprocessor
 	process = Process(target = FaceRecog.main, args = (qFrame, qStatus, qPlayer))
@@ -119,6 +124,9 @@ def player_info():
 			PlayerInfo = qPlayer.get()
 			ReceivePlayerInfo(PlayerInfo)
 			yield 'data: {}\n\n'.format(PlayerInfo)
+		global process
+		process.terminate()
+		process.join()
 	return Response(gen(), mimetype='text/event-stream')
 
 def ReceivePlayerInfo(PlayerInfo):
@@ -206,7 +214,7 @@ def get_bet_rate(hand):
 	if len(hand) == 2 and ace_count == 2:
 		return 3
 
-	if len(hand) == 2 and ace_count == 1 or jack_count == 1 or queen_count == 1 or king_count == 1:
+	if (len(hand) == 2 and ace_count == 1) and (jack_count == 1 or queen_count == 1 or king_count == 1):
 		return 2
 
 	if len(hand) == 5 and score < 21:
@@ -241,6 +249,7 @@ def info():
 
 
 def Distribute1Card(coordinate, card):
+	temp_coordinate = [i for i in coordinate]
 	global test_i, rank
 	chain1.dispense()
 	rank = ""
@@ -251,7 +260,15 @@ def Distribute1Card(coordinate, card):
 	chain1.dynamixel_write(CardStationPosition)
 	chain1.grip(1)
 	chain1.dynamixel_write(CardStationStandbyPosition)
-	chain1.move_to(coordinate)
+	if len(temp_coordinate) == 4:
+		# used for arm card pos (fixed joint angles)
+		chain1.dynamixel_write(temp_coordinate)
+	else:
+		# player pos (xyz)
+		temp_coordinate[0] = 38
+		temp_coordinate[1] *= -1
+		temp_coordinate[2] = -1.5
+		chain1.move_to(temp_coordinate)
 	chain1.grip(0)
 	print(Player1Card)
 	test_i += 1
@@ -277,8 +294,6 @@ def PromptforBet(x, money):
 	while ArduinoDecision != "PLACEBET":
 		Jumbotron_text1 = '<font color="red">Player ' + str(x) +'</font> is placing bets.'
 		Jumbotron_text2 = "Please respond with the device provided :)<br>You have S$" + str(money) + "."
-		# engine.say('Player' + str(x) + 'is placing bets, Please response with the device provided.')
-		# engine.runAndWait()
 		if ArduinoBet != "":
 			## Remake
 
@@ -338,21 +353,52 @@ def PromptforBet(x, money):
 			ArduinoDecision = ""
 			time.sleep(3)
 			return 0
-	
+			
+def StartSpeech(qSpeech):	
+	engine = pyttsx3.init()
+	rate = engine.getProperty('rate')
+	engine.setProperty('rate', rate-50)
+	try:
+		speech = qSpeech.get(False)
+		engine.say(speech)
+		engine.runAndWait()
+	except queue.Empty:
+		pass
+
+def SpeechMachine(string):
+	qStatus.put(string)
+	# engine = pyttsx3.init()
+	# rate = engine.getProperty('rate')
+	# engine.setProperty('rate', rate-50)
+	# engine.say(string)
+	# engine.runAndWait()
+	# qSpeech = queue.Queue()
+	# qSpeech.put(string)
+	# thread = threading.Thread(target=StartSpeech,name=StartSpeech, args=(qSpeech,))
+	# thread.start()
+	# qSpeech.put(string)
+	return 1
+
 def PromptforBetRemake(x, money):
 	global ArduinoBet, ActivateArduino, ArduinoDecision, Jumbotron_text1, Jumbotron_text2, Player1Bet, Player2Bet, Player3Bet, Player1Money, Player2Money, Player3Money, ExistingPlayer
 	ActivateArduino = "BET"
+	speak = 0
 	while ArduinoDecision != "PLACEBET":
 		Jumbotron_text1 = '<font color="red">Player ' + str(x) +'</font> is placing bets.'
 		Jumbotron_text2 = "Please respond with the device provided :)<br>You have S$" + str(money) + "."
+		if speak == 0:
+			SpeechMachine('Player' + str(x) + 'is placing bets, Please response with the device provided.')
+			speak = 1
 		if ArduinoBet != "":
 			bet = round(int(ArduinoBet)/100 * money)
 	ArduinoDecision = ""
 	ActivateArduino = "DECISION"
 	if bet == 0:
-		Jumbotron_text2 = '<font color="red">You are about opt out from the game. Are you sure?</font>'
+		Jumbotron_text2 = '<font color="red">You are about to opt out from the game. Are you sure?</font>'
+		SpeechMachine('You are about to opt out from the game. Are you sure?')
 	else: 
 		Jumbotron_text2 = '<font color="red">You are about to place S$' + str(bet) +". Are you sure?</font>"
+		SpeechMachine('You are about to place' + str(bet) +'$. Are you sure?')
 	while True:
 		if ArduinoDecision == "NO":
 			ActivateArduino = ""
@@ -373,8 +419,10 @@ def PromptforBetRemake(x, money):
 					Player3Money -= Player3Bet
 					money = Player3Money
 				Jumbotron_text2 = '<font color="green">Bet placed, you have S$' + str(money) + " remaining. Good Luck!</font>"
+				SpeechMachine('Bet placed successfully, good luck.')
 			elif bet == 0:
 				Jumbotron_text2 = '<font color="red">Player ' + str(x) + " has opted out from the game. </font>"
+				SpeechMachine('Player' + str(x) + 'has opted out from the game.')
 				if x == 1: 
 					ExistingPlayer[0] = 0
 				elif x == 2:
@@ -396,19 +444,23 @@ def PromptforCard(coordinate, card):
 		while ArduinoDecision != "NO":
 			if ArduinoDecision == "YES":
 				if len(card) < 4:
-					Jumbotron_text2 = '<font color="green">You indicated that you want to add 1 more card, just a sec ;)</font>'
+					Jumbotron_text2 = '<font color="green">You have indicated that you want to add 1 more card, just a sec ;)</font>'
+					SpeechMachine('You have indicated that you want to add 1 more card, just a second.')
 					ArduinoDecision = ""
 					ActivateArduino = ""
 					Distribute1Card(coordinate, card)
 					Jumbotron_text2 = "Do you wish to add more cards?"
+					SpeechMachine('Do you still wish to add more cards?')
 					ActivateArduino = "DECISION"	
 				elif len(card) == 4:
 					Jumbotron_text2 = '<font color="green">You indicated that you want to add 1 more card, just a sec ;)</font><br><font color="red">This is the fifth and will the last card.</font>'
+					SpeechMachine('You have indicated that you want to add 1 more card, this will be your fifth and also the last card.')
 					ArduinoDecision = ""
 					ActivateArduino = ""
 					Distribute1Card(coordinate, card)
 					return "0"
 		Jumbotron_text2 = '<font color="red">You indicated that you don''t want anymore card, good luck :)</font>'
+		SpeechMachine('You have indicated that you do not want anymore card, good luck.')
 		ArduinoDecision = ""
 		ActivateArduino = ""
 		return "0"
@@ -424,15 +476,19 @@ def PromptforCardWithoutArduino(coordinate, card):
 			if decision == "YES":
 				if len(card) < 4:
 					Jumbotron_text2 = '<font color="green">You indicated that you want to add 1 more card, just a sec ;)</font>'
+					SpeechMachine('You have indicated that you want to add 1 more card, just a second.')
 					Distribute1Card(coordinate, card)
 					Jumbotron_text2 = "Do you wish to add more cards?"
+					SpeechMachine('Do you still wish to add more cards?')
 					decision = "" 
 				elif len(card) == 4:
 					Jumbotron_text2 = '<font color="green">You indicated that you want to add 1 more card, just a sec ;)</font><br><font color="red">This is the fifth and will the last card.</font>'
+					SpeechMachine('You have indicated that you want to add 1 more card, this will be your fifth and also the last card.')
 					Distribute1Card(coordinate, card)
 					decision = ""
 					return "0"
 		Jumbotron_text2 = '<font color="red">You indicated that you don''t want anymore card, good luck :)</font>'
+		SpeechMachine('You have indicated that you do not want anymore card, good luck.')
 		decision = ""
 		return "0"
 
@@ -531,7 +587,7 @@ def adminpage():
 
 @app.route('/adminfeeds', methods = ['GET'])
 def adminquery():
-	return jsonify(CardStationPosition = [CardStationPosition], Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ArmPosition = [ArmPosition], ArmCard = [ArmCard], ArmCardValue = ArmCardValue, Player1Position = [Player1Position], Player1Card = [Player1Card], Player1CardValue = Player1CardValue, Player1Money = Player1Money, Player1Bet = Player1Bet, Player2Position = [Player2Position], Player2Card = [Player2Card], Player2CardValue = Player2CardValue, Player2Money = Player2Money, Player2Bet = Player2Bet, Player3Position = [Player3Position], Player3Card = [Player3Card], Player3CardValue = Player3CardValue, Player3Money = Player3Money, Player3Bet = Player3Bet)
+	return jsonify(Jumbotron_title = Jumbotron_title, Jumbotron_text1 = Jumbotron_text1, Jumbotron_text2 = Jumbotron_text2, ArmPosition = [ArmPosition], ArmCard = [ArmCard], ArmCardValue = ArmCardValue, Player1Position = [Player1Position], Player1Card = [Player1Card], Player1CardValue = Player1CardValue, Player1Money = Player1Money, Player1Bet = Player1Bet, Player2Position = [Player2Position], Player2Card = [Player2Card], Player2CardValue = Player2CardValue, Player2Money = Player2Money, Player2Bet = Player2Bet, Player3Position = [Player3Position], Player3Card = [Player3Card], Player3CardValue = Player3CardValue, Player3Money = Player3Money, Player3Bet = Player3Bet)
 
 @app.route('/feedback', methods = ['GET'])
 def RealtimeFeedback():
@@ -576,8 +632,10 @@ def ActualGameProgress():
 	global Jumbotron_title, Jumbotron_text1, Jumbotron_text2, ResetBtn, BetPhase, CurrPlayer
 	# # Distribute 1 card to each player, repeat 2 times
 	#chain1.dynamixel_write(CardStationStandbyPosition)
+
 	BetPhase = "show"
 	Jumbotron_title = "Phase 1: Placing of Bets"
+	SpeechMachine('Proceed to the next stage')
 	if ExistingPlayer[0] == 1:
 		CurrPlayer = 1
 		PromptforBetRemake(1, Player1Money)
@@ -602,27 +660,36 @@ def ActualGameProgress():
 
 	Jumbotron_title = "Phase 2: Distribution of Card"
 	Jumbotron_text1 = 'Distributing cards to all players. <font color = "red">Please be patient :)</font>'
+	SpeechMachine('Distributing cards to all players and dealer.')
 	if ExistingPlayer[0] == 1:
 		Jumbotron_text2 = "Distributing card to Player 1."
+		print(Jumbotron_text2)
 		Distribute1Card(Player1Position, Player1Card)
 	if ExistingPlayer[1] == 1:	
 		Jumbotron_text2 = "Distributing card to Player 2."
+		print(Jumbotron_text2)
 		Distribute1Card(Player2Position, Player2Card)
 	if ExistingPlayer[2] == 1:
 		Jumbotron_text2 = "Distributing card to Player 3."
+		print(Jumbotron_text2)
 		Distribute1Card(Player3Position, Player3Card)
 	Jumbotron_text2 = "Getting card for myself :p"
+	print(Jumbotron_text2)
 	Distribute1Card(ArmPosition, ArmCard)
 	if ExistingPlayer[0] == 1:
 		Jumbotron_text2 = "Distributing card to Player 1."
+		print(Jumbotron_text2)
 		Distribute1Card(Player1Position, Player1Card)
 	if ExistingPlayer[1] == 1:
 		Jumbotron_text2 = "Distributing card to Player 2."
+		print(Jumbotron_text2)
 		Distribute1Card(Player2Position, Player2Card)
 	if ExistingPlayer[2] == 1:
 		Jumbotron_text2 = "Distributing card to Player 3."
+		print(Jumbotron_text2)
 		Distribute1Card(Player3Position, Player3Card)
 	Jumbotron_text2 = "Getting card for myself :p"
+	print(Jumbotron_text2)
 	Distribute1Card(ArmPosition, ArmCard)
 
 	#Print out all cards in player's hand
@@ -635,19 +702,25 @@ def ActualGameProgress():
 	Jumbotron_title = "Phase 3: Card Adding"
 	if ExistingPlayer[0] == 1:
 		Jumbotron_text1 = 'Adding cards for <font color="red">Player 1</font>'
+		print(Jumbotron_text1)
 		Jumbotron_text2 = "Please indicate your choice with the device provided."
+		SpeechMachine('Player1, do you wish to add more cards? Please respond with the device provided')
 		PromptforCard(Player1Position, Player1Card)
 		#chain1.dynamixel_write(CardStationStandbyPosition)
 		time.sleep(1)
 	if ExistingPlayer[1] == 1:
 		Jumbotron_text1 = 'Adding Cards for <font color="red">Player 2</font>'
+		print(Jumbotron_text1)
 		Jumbotron_text2 = "Please indicate your choice with the device provided."
+		SpeechMachine('Player2, do you wish to add more cards? Please respond with the device provided')
 		PromptforCard(Player2Position, Player2Card)
 		#chain1.dynamixel_write(CardStationStandbyPosition)
 		time.sleep(1)
 	if ExistingPlayer[2] == 1:
 		Jumbotron_text1 = 'Adding Cards for <font color="red">Player 3</font>'
+		print(Jumbotron_text1)
 		Jumbotron_text2 = "Please indicate your choice with the device provided."
+		SpeechMachine('Player3, do you wish to add more cards? Please respond with the device provided')
 		PromptforCard(Player3Position, Player3Card)
 		time.sleep(1)
 	print(Player1Card)
@@ -665,6 +738,7 @@ def ActualGameProgress():
 	#decide whether to add more cards
 	Jumbotron_text1 = "Adding cards for myself :p"
 	Jumbotron_text2 = ""
+	SpeechMachine('Dealer is adding card.')
 	time.sleep(1)
 	ArmCardValue = ChecktoAddCard(ArmPosition, ArmCard, ArmCardValue)
 	#chain1.dynamixel_write(CardStationStandbyPosition)
@@ -673,60 +747,78 @@ def ActualGameProgress():
 	#announce everyone to open card
 	Jumbotron_title = "Phase 4: Dealer vs. Players"
 	Jumbotron_text1 = 'All players will compare your cards with the dealer.'
-	OpenCardDeck(ArmPosition)
-	time.sleep(3)
+	SpeechMachine('All players will compare your cards with the dealer.')
+	
 	if (ExistingPlayer[0] == 1):
-		Jumbotron_text1 = '<font color="red">Player 1 please open your cards.</font>'
+		temp_coordinate = [i for i in Player1Position]
+		temp_coordinate[1] *= -1
+		Jumbotron_text1 = '<font color="red">Player 1 please show your cards.</font>'
 		Jumbotron_text2 = "Very complicated calculation process is happening in the background..."
-		chain1.move_to(Player1Position)
+		SpeechMachine('Player1 please show your cards')
+		chain1.move_to(temp_coordinate)
 		Winner = get_result(Player1Card, ArmCard)
 		if Winner == "player":
 			BetRate = get_bet_rate(Player1Card)
 			print(BetRate)
 			Jumbotron_text1 = '<font color="green">Player 1 has won with odds of ' + str(BetRate) + " to 1 </font>"
 			Player1Money += ((1 + BetRate) * Player1Bet)
-			Jumbotron_text2 = "S$" + str(Player1Bet * BetRate) + " has been credited to Player 1, Congratulations!<br>Press Button 1 to continue."
+			Jumbotron_text2 = "S$" + str(Player1Bet * BetRate) + ' has been credited to Player 1, Congratulations!<br>Press<font color="green"> YES </font>to continue.'
+			SpeechMachine('Congratulations Player1, you have won the bet with odd of ' + str(BetRate) + " to 1.")
+			SpeechMachine(str(Player1Bet * BetRate) + '$ has been credited to you, press YES to continue.')
 			WaitforButtonPress()
 			Player1Bet = 0
 		elif Winner == "dealer":
 			BetRate = get_bet_rate(ArmCard)
 			Jumbotron_text1 = '<font color="red">Player 1 had lost.</font>'
-			Jumbotron_text2 = "S$" + str(Player1Bet) +" of bet placed earlier will be credited to the dealer.<br>Press Button 1 to continue."
+			Jumbotron_text2 = "S$" + str(Player1Bet) +" of bet placed earlier has been credited to the dealer.<br>Press <font color='green'>YES</font> to continue."
 			ArmMoney += Player1Bet
+			SpeechMachine('Dealer has won the bet!'+ str(Player1Bet)+ '$ of bet placed earlier has been credited to the dealer, dont be sad.')
+			SpeechMachine('Press YES to continue.')
 			WaitforButtonPress()
 			Player1Bet = 0
 		elif Winner == "draw":
 			Jumbotron_text1 = "It's a draw!"
-			Jumbotron_text2 = "No money will be collected from player, S$" + str(Player1Bet) + " has been credited back to Player 1.<br>Press Button 1 to continue."
+			Jumbotron_text2 = "No money is collected from player, S$" + str(Player1Bet) + " has been credited back to Player 1.<br>Press Button 1 to continue."
 			Player1Money += Player1Bet
+			SpeechMachine("It's a draw!" + str(Player1Bet) + "$ of bet placed earlier has been credited back to you")
+			SpeechMachine('Press YES to continue.')
 			WaitforButtonPress()
 			Player1Bet = 0
 		#chain1.dynamixel_write(CardStationStandbyPosition)
 
 	if (ExistingPlayer[1] == 1):
-		Jumbotron_text1 = '<font color="red">Player 2 please open your cards.</font>'
+		temp_coordinate = [i for i in Player2Position]
+		temp_coordinate[1] *= -1
+		Jumbotron_text1 = '<font color="red">Player 2 please show your cards.</font>'
 		Jumbotron_text2 = "Very complicated calculation process is happening in the background..."
-		chain1.move_to(Player2Position)
+		SpeechMachine('Player2 please show your cards')
+		chain1.move_to(temp_coordinate)
 		Winner = get_result(Player2Card, ArmCard)
 		if Winner == "player":
 			BetRate = get_bet_rate(Player2Card)
 			print(BetRate)
 			Jumbotron_text1 = '<font color="green">Player 2 has won with odds of ' + str(BetRate) + " to 1 </font>"
 			Player2Money += ((1 + BetRate) * Player2Bet)
-			Jumbotron_text2 = "S$" + str(Player2Bet * BetRate) + " has been credited to Player 2, Congratulations!<br>Press Button 1 to continue."
+			Jumbotron_text2 = "S$" + str(Player2Bet * BetRate) + " has been credited to Player 2, Congratulations!<br>Press <font color='green'>YES</font> to continue."
+			SpeechMachine('Congratulations Player2, you have won the bet with odd of ' + str(BetRate) + " to 1.")
+			SpeechMachine(str(Player2Bet * BetRate) + '$ has been credited to you, press YES to continue.')
 			WaitforButtonPress()
 			Player2Bet = 0
 		elif Winner == "dealer":
 			BetRate = get_bet_rate(ArmCard)
 			Jumbotron_text1 = '<font color="red">Player 2 had lost.</font>'
-			Jumbotron_text2 = "S$" + str(Player2Bet) +" of bet placed earlier will be credited to the dealer.<br>Press Button 1 to continue."
+			Jumbotron_text2 = "S$" + str(Player2Bet) +" of bet placed earlier has been credited to the dealer.<br>Press <font color='green'>YES</font> to continue."
 			ArmMoney += Player2Bet
+			SpeechMachine('Dealer has won the bet!'+ str(Player2Bet)+ '$ of bet placed earlier has been credited to the dealer, dont be sad.')
+			SpeechMachine('Press YES to continue.')
 			WaitforButtonPress()
 			Player2Bet = 0
 		elif Winner == "draw":
 			Jumbotron_text1 = "It's a draw!"
-			Jumbotron_text2 = "No money will be collected from player, S$" + str(Player2Bet) + " has been credited back to Player 2.<br>Press Button 1 to continue."
+			Jumbotron_text2 = "No money is collected from player, S$" + str(Player2Bet) + " has been credited back to Player 2.<br>Press <font color='green'>YES</font> to continue."
 			Player2Money += Player2Bet
+			SpeechMachine("It's a draw!" + str(Player2Bet) + "$ of bet placed earlier has been credited back to you")
+			SpeechMachine('Press YES to continue.')
 			WaitforButtonPress()
 			Player2Bet = 0
 		
@@ -734,35 +826,45 @@ def ActualGameProgress():
 
 
 	if (ExistingPlayer[2] == 1):
-		Jumbotron_text1 = '<font color="red">Player 3 please open your cards.</font>'
+		temp_coordinate = [i for i in Player3Position]
+		temp_coordinate[1] *= -1
+		Jumbotron_text1 = '<font color="red">Player 3 please show your cards.</font>'
 		Jumbotron_text2 = "Very complicated calculation process is happening in the background..."
-		chain1.move_to(Player3Position)
+		SpeechMachine('Player3 please show your cards')
+		chain1.move_to(temp_coordinate)
 		Winner = get_result(Player3Card, ArmCard)
 		if Winner == "player":
 			BetRate = get_bet_rate(Player3Card)
 			print(BetRate)
 			Jumbotron_text1 = '<font color="green">Player 3 has won with odds of ' + str(BetRate) + " to 1 </font>"
 			Player3Money += ((1 + BetRate) * Player3Bet)
-			Jumbotron_text2 = "S$" + str(Player3Bet * BetRate) + " has been credited to Player 3, Congratulations!<br>Press Button 1 to continue."
+			Jumbotron_text2 = "S$" + str(Player3Bet * BetRate) + " has been credited to Player 3, Congratulations!<br>Press <font color='green'>YES</font> to continue."
+			SpeechMachine('Congratulations Player3, you have won the bet with odd of ' + str(BetRate) + " to 1.")
+			SpeechMachine(str(Player3Bet * BetRate) + '$ has been credited to you, press YES to continue.')
 			WaitforButtonPress()
 			Player3Bet = 0
 		elif Winner == "dealer":
 			BetRate = get_bet_rate(ArmCard)
 			Jumbotron_text1 = '<font color="red">Player 3 had lost.</font>'
-			Jumbotron_text2 = "S$" + str(Player3Bet) +" of bet placed earlier will be credited to the dealer.<br>Press Button 1 to continue."
+			Jumbotron_text2 = "S$" + str(Player3Bet) +" of bet placed earlier has been credited to the dealer.<br>Press <font color='green'>YES</font> to continue."
 			ArmMoney += Player3Bet
+			SpeechMachine('Dealer has won the bet!'+ str(Player3Bet)+ '$ of bet placed earlier has been credited to the dealer, dont be sad.')
+			SpeechMachine('Press YES to continue.')
 			WaitforButtonPress()
 			Player3Bet = 0
 		elif Winner == "draw":
 			Jumbotron_text1 = "It's a draw!"
-			Jumbotron_text2 = "No money will be collected from player, S$" + str(Player3Bet) + " has been credited back to Player 3.<br>Press Button 1 to continue."
+			Jumbotron_text2 = "No money is collected from player, S$" + str(Player3Bet) + " has been credited back to Player 3.<br>Press <font color='green'>YES</font> to continue."
 			Player3Money += Player3Bet
+			SpeechMachine("It's a draw!" + str(Player3Bet) + "$ of bet placed earlier has been credited back to you")
+			SpeechMachine('Press YES to continue.')
 			WaitforButtonPress()
 			Player3Bet = 0
 	chain1.dynamixel_write(CardStationStandbyPosition)
 	Jumbotron_title = "The End"
 	Jumbotron_text1 = "The game has ended, thank you for your participation"
 	Jumbotron_text2 = 'Press the <font color="green">CONTINUE</font> button to play 1 more round, or the <font color="red">RESET</font> button to start a <b>new</b> game.'
+	SpeechMachine('The game has came to an end, to have 1 more round, press continue, to start a new game, press reset. Thank you for your participation.')
 	ResetBtn = "show"
 	
 

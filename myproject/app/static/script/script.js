@@ -29,16 +29,7 @@ function StartGame(){
 
 }
 
-function initiate(){
-    console.log("ahem");
-    $.ajax({
-        method:'POST',
-        url:"/initiate",
-        success:function(response){
-            console.log("SUCCESS!!!!!")
-        }
-    })
-}
+
 function OneMoreRound(){
     $.ajax({
         method:'POST',
@@ -96,8 +87,8 @@ function OneMoreRound(){
                         $("#Player3Money").html("Opted out");
                     }
                     if(data.ResetBtn == "show"){
-                        $("#ResetBtn").show();
-                        $("#ContinueBtn").show();
+                        $("#ResetBtn").fadeIn('slow');
+                        $("#ContinueBtn").fadeIn('slow');
                     }
                     if(data.ResetBtn == ""){
                         $("#ResetBtn").hide();

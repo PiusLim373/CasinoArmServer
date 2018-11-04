@@ -115,6 +115,13 @@
             break;
         case "All players located":
             $('#SitStill').addClass("checked")
+
+        case "Game Reset":
+            $('#GameStart').removeClass("checked")
+            $('#SitStill').removeClass("checked")
+            $('#Player1').removeClass("checked")
+            $('#Player2').removeClass("checked")
+            $('#Player3').removeClass("checked")
       }
       
     	console.log(event.data)
