@@ -783,7 +783,7 @@ class Kinematics:
     def move_to(self,target):
         start_time = time.monotonic()
         print("\nStep 1: Update current pos")
-        original = self.dynamixel_read()
+        self.dynamixel_read()
         print("\nStep 2: Calculate theta/joint angles")
         if len(target) == 3:
             joint = self.ik(self.theta,target)
