@@ -19,7 +19,7 @@ if os.name == 'nt':
 
 class Kinematics:
     # Arduino setup
-    ARDUINO_PORT = 'COM14'
+    ARDUINO_PORT = 'COM8'
     ARDUINO_BAUD = 9600
 
     # Data Byte Length

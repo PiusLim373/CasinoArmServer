@@ -21,9 +21,9 @@ speak = Dispatch("SAPI.SpVoice")
 app = Flask(__name__)
 
 
-# log = logging.getLogger('werkzeug')
-# log.disabled = True
-# app.logger.disabled = True
+log = logging.getLogger('werkzeug')
+log.disabled = True
+app.logger.disabled = True
 
 Player1Position = []
 Player2Position = []
